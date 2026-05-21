@@ -265,7 +265,7 @@ tr:hover td{background:#fafaf8}
 
 <div id="modal-piquete" class="overlay" style="display:none">
   <div class="modal">
-    <h3>Adicionar piquete / módulo</h3>
+    <h3 id="modal-piquete-titulo">Adicionar piquete / módulo</h3>
     <div class="fg">
       <div><div class="fl">Nome *</div><input class="fi" id="fpq-nome" placeholder="ex: P-10"></div>
       <div><div class="fl">Tipo</div>
@@ -273,12 +273,12 @@ tr:hover td{background:#fafaf8}
       </div>
     </div>
     <div class="fg">
-      <div><div class="fl">Capacidade máx.</div><input class="fi" type="number" id="fpq-cap" placeholder="ex: 80"></div>
+      <div><div class="fl">Capacidade máx. (animais)</div><input class="fi" type="number" id="fpq-cap" placeholder="ex: 80"></div>
       <div><div class="fl">Hectares</div><input class="fi" type="number" id="fpq-ha" placeholder="ex: 12"></div>
     </div>
     <div class="modal-btns">
-      <button class="btn btn-s" onclick="salvarPiquete()">&#10003; Salvar</button>
-      <button class="btn" onclick="fecharModal('modal-piquete')">Cancelar</button>
+      <button id="btn-salvar-piquete" class="btn btn-s" onclick="salvarPiquete()">&#10003; Salvar</button>
+      <button class="btn" onclick="fecharModal('modal-piquete');resetFormPiquete()">Cancelar</button>
     </div>
   </div>
 </div>
@@ -564,17 +564,54 @@ function renderPiquetes(){
     const n=ANIMAIS.filter(a=>a.piquete===p.nome).length;
     const pct=p.cap?Math.round(n/p.cap*100):0;
     const cor=pct>90?'#c62828':pct>70?'#f57f17':'#1D9E75';
+    const pctBar=p.cap?Math.min(pct,100):0;
     return`<div class="pq-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
         <div class="pq-n">${p.nome}</div>
         <span class="badge bb" style="font-size:10px">${p.tipo}</span>
       </div>
       <div class="pq-val">${n}</div>
-      <div style="font-size:11px;color:#888">de ${p.cap} cap.${p.ha?' · '+p.ha+' ha':''}</div>
-      <div class="pq-bar"><div class="pq-fill" style="width:${pct}%;background:${cor}"></div></div>
-      <div style="font-size:10px;color:#aaa;margin-top:4px">${pct}% ocupado</div>
+      <div style="font-size:11px;color:#888">de ${p.cap||'—'} cap.${p.ha?' · '+p.ha+' ha':''}</div>
+      <div class="pq-bar"><div class="pq-fill" style="width:${pctBar}%;background:${cor}"></div></div>
+      <div style="font-size:10px;color:#aaa;margin-top:4px">${p.cap?pct+'% ocupado':'Capacidade não definida'}</div>
+      <button class="btn" style="margin-top:10px;width:100%;justify-content:center;font-size:11px" onclick="abrirEditarPiquete('${p.nome.replace(/'/g,"\\'")}')">&#9998; Editar</button>
     </div>`;
   }).join(''):`<div class="empty">Nenhum piquete cadastrado.</div>`;
+}
+
+function abrirEditarPiquete(nome){
+  const p=PIQUETES.find(x=>x.nome===nome);
+  if(!p)return;
+  document.getElementById('fpq-nome').value=p.nome;
+  document.getElementById('fpq-tipo').value=p.tipo||'Recria geral';
+  document.getElementById('fpq-cap').value=p.cap||'';
+  document.getElementById('fpq-ha').value=p.ha||'';
+  document.getElementById('fpq-nome').disabled=true;
+  document.getElementById('modal-piquete-titulo').textContent='Editar piquete — '+p.nome;
+  document.getElementById('btn-salvar-piquete').textContent='✓ Salvar alterações';
+  document.getElementById('btn-salvar-piquete').onclick=()=>salvarEdicaoPiquete(nome);
+  document.getElementById('modal-piquete').style.display='flex';
+}
+
+async function salvarEdicaoPiquete(nome){
+  const tipo=document.getElementById('fpq-tipo').value;
+  const cap=parseInt(document.getElementById('fpq-cap').value)||0;
+  const ha=parseFloat(document.getElementById('fpq-ha').value)||0;
+  const {error}=await sb.from('piquetes').update({tipo,cap,ha}).eq('nome',nome);
+  if(error){alert('Erro: '+error.message);return;}
+  fecharModal('modal-piquete');
+  resetFormPiquete();
+  await carregarTudo();
+}
+
+function resetFormPiquete(){
+  document.getElementById('fpq-nome').value='';
+  document.getElementById('fpq-nome').disabled=false;
+  document.getElementById('fpq-cap').value='';
+  document.getElementById('fpq-ha').value='';
+  document.getElementById('modal-piquete-titulo').textContent='Adicionar piquete / módulo';
+  document.getElementById('btn-salvar-piquete').textContent='✓ Salvar';
+  document.getElementById('btn-salvar-piquete').onclick=salvarPiquete;
 }
 
 async function salvarPiquete(){
@@ -583,7 +620,7 @@ async function salvarPiquete(){
   const {error}=await sb.from('piquetes').insert({nome,tipo:document.getElementById('fpq-tipo').value,cap:parseInt(document.getElementById('fpq-cap').value)||0,ha:parseFloat(document.getElementById('fpq-ha').value)||0});
   if(error){alert('Erro: '+error.message);return;}
   fecharModal('modal-piquete');
-  document.getElementById('fpq-nome').value='';document.getElementById('fpq-cap').value='';document.getElementById('fpq-ha').value='';
+  resetFormPiquete();
   await carregarTudo();
 }
 
