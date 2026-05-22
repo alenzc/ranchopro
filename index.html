@@ -143,6 +143,7 @@ tr:hover td{background:var(--brand-light)}
   <button class="nb" onclick="nav('inseminacoes',this)">&#9632; Inseminações</button>
   <button class="nb" onclick="nav('genealogia',this)">&#9632; Genealogia</button>
   <button class="nb" onclick="nav('piquetes',this)">&#9632; Piquetes</button>
+  <button class="nb" onclick="nav('config',this)">&#9881; Configurações</button>
 </div>
 
 <div class="content">
@@ -399,6 +400,75 @@ tr:hover td{background:var(--brand-light)}
       <button class="btn" onclick="fecharModal('modal-piquete');resetFormPiquete()">Cancelar</button>
     </div>
   </div>
+  <div id="sec-config" class="sec">
+    <div class="sec-header">
+      <span class="sec-title">&#9881; Configurações do sistema</span>
+    </div>
+    <div class="card">
+      <div class="ch">
+        <span class="ct">Regras de categorização de animais</span>
+        <button class="btn btn-p" onclick="novaCategoriaForm()">+ Nova categoria</button>
+      </div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px">A categoria é calculada automaticamente com base em <strong>sexo</strong>, <strong>faixa de idade</strong> e <strong>número de partos</strong>. A ordem da lista importa — a primeira regra que combinar será usada.</p>
+      <div class="tw">
+        <table><thead><tr>
+          <th style="width:28px">#</th><th>Nome</th><th>Sexo</th><th>Idade mín.</th><th>Idade máx.</th><th>Partos mín.</th><th>Partos máx.</th><th>Situações</th><th></th>
+        </tr></thead>
+        <tbody id="tbody-cats"></tbody></table>
+      </div>
+      <div id="form-cat-wrap" style="display:none;margin-top:14px;background:var(--bg3);border-radius:10px;padding:14px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px" id="form-cat-titulo">Nova categoria</div>
+        <div class="fg">
+          <div><div class="fl">Nome *</div><input class="fi" id="fc-nome" placeholder="ex: Garrote"></div>
+          <div><div class="fl">Sexo *</div>
+            <select class="fi" id="fc-sexo"><option value="F">Fêmea</option><option value="M">Macho</option><option value="*">Ambos</option></select>
+          </div>
+        </div>
+        <div class="fg">
+          <div><div class="fl">Idade mínima (meses)</div><input class="fi" type="number" id="fc-min" placeholder="0" min="0"></div>
+          <div><div class="fl">Idade máxima (meses)</div><input class="fi" type="number" id="fc-max" placeholder="sem limite" min="0"></div>
+        </div>
+        <div class="fg">
+          <div><div class="fl">Partos mínimos</div><input class="fi" type="number" id="fc-pmin" placeholder="0" min="0"></div>
+          <div><div class="fl">Partos máximos</div><input class="fi" type="number" id="fc-pmax" placeholder="sem limite" min="0"></div>
+        </div>
+        <div class="fg full">
+          <div><div class="fl">Situações que ativam (deixe em branco = qualquer)</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px" id="fc-situacoes-wrap"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-s" onclick="salvarCategoria()">&#10003; Salvar categoria</button>
+          <button class="btn" onclick="document.getElementById('form-cat-wrap').style.display='none'">Cancelar</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch">
+        <span class="ct">Situações disponíveis</span>
+        <button class="btn btn-p" onclick="novaSituacaoForm()">+ Nova situação</button>
+      </div>
+      <div id="situacoes-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px"></div>
+      <div id="form-situ-wrap" style="display:none;margin-top:14px;background:var(--bg3);border-radius:10px;padding:14px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:10px">Nova situação</div>
+        <div class="fg">
+          <div><div class="fl">Nome *</div><input class="fi" id="fs-nome" placeholder="ex: Descarte"></div>
+          <div><div class="fl">Cor</div>
+            <select class="fi" id="fs-cor">
+              <option value="bgr">Cinza</option><option value="bg">Verde</option>
+              <option value="ba">Amarelo</option><option value="bb">Azul</option>
+              <option value="br">Vermelho</option><option value="bp">Roxo</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-s" onclick="salvarSituacao()">&#10003; Salvar</button>
+          <button class="btn" onclick="document.getElementById('form-situ-wrap').style.display='none'">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -407,18 +477,31 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let ANIMAIS=[], PESAGENS=[], INSEMINACOES=[], PIQUETES=[];
+let CATEGORIAS=[], SITUACOES=[];
 
 async function carregarTudo(){
-  const [a,p,i,q] = await Promise.all([
+  const [a,p,i,q,cfg] = await Promise.all([
     sb.from('animais').select('*').order('id'),
     sb.from('pesagens').select('*').order('data'),
     sb.from('inseminacoes').select('*').order('data',{ascending:false}),
     sb.from('piquetes').select('*').order('nome'),
+    sb.from('configuracoes').select('*'),
   ]);
   ANIMAIS = a.data||[];
   PESAGENS = p.data||[];
   INSEMINACOES = i.data||[];
   PIQUETES = q.data||[];
+  // Load config
+  const cfgData = cfg.data||[];
+  const catRow = cfgData.find(r=>r.chave==='categorias');
+  const situRow = cfgData.find(r=>r.chave==='situacoes');
+  try{ CATEGORIAS = catRow ? JSON.parse(catRow.valor) : []; }catch(e){ CATEGORIAS=[]; }
+  try{ SITUACOES = situRow ? JSON.parse(situRow.valor) : []; }catch(e){ SITUACOES=[]; }
+  if(!SITUACOES.length) SITUACOES = [
+    {nome:'Vazia',cor:'ba'},{nome:'Exposta',cor:'ba'},{nome:'Prenhe',cor:'bg'},
+    {nome:'Vazia com cria ao pé',cor:'ba'},{nome:'Exposta com cria ao pé',cor:'ba'},
+    {nome:'Prenhe com cria ao pé',cor:'bg'}
+  ];
   renderAll();
 }
 
@@ -437,28 +520,31 @@ function calcIdade(nasc){
   return a>0?`${a}a ${rm}m`:`${m}m`;
 }
 function categoriaAuto(animal){
-  // Determina categoria automaticamente baseada em sexo, idade e partos
   const m = calcIdadeMeses(animal.nasc);
-  const sexo = animal.sexo;
+  const sexo = animal.sexo || 'F';
   const partos = animal.partos || 0;
-  const cat = (animal.cat||'').toLowerCase();
+  const situacao = animal.cat || '';
+  // Use dynamic rules if available
+  if(CATEGORIAS && CATEGORIAS.length){
+    for(const regra of CATEGORIAS){
+      const sexoOk = regra.sexo==='*' || regra.sexo===sexo;
+      const idadeOk = m===null || (m >= (regra.idade_min||0) && m <= (regra.idade_max||999));
+      const partosOk = partos >= (regra.partos_min||0) && partos <= (regra.partos_max||99);
+      const situacoes = regra.situacoes || [];
+      const situOk = !situacoes.length || situacoes.includes('') || situacoes.includes(situacao);
+      if(sexoOk && idadeOk && partosOk && situOk) return regra.nome;
+    }
+  }
+  // Fallback hardcoded
   if(sexo==='M'){
     if(m!==null && m<8) return 'Bezerro';
+    if(m!==null && m<24) return 'Recria';
     return 'Touro Reprodutor';
   }
-  // Fêmea
   if(m!==null && m<8) return 'Bezerra';
-  if(partos===0){
-    if(cat.includes('prenhe')||cat.includes('gestante')) return 'Novilha Prenhe';
-    return 'Novilha Vazia';
-  }
-  if(partos===1){
-    if(cat.includes('prenhe')||cat.includes('gestante')) return 'Primípara Prenhe';
-    return 'Primípara';
-  }
-  // 2+ partos
-  if(cat.includes('prenhe')||cat.includes('gestante')) return 'Multípara Prenhe';
-  return 'Multípara';
+  if(partos===0) return situacao.includes('renhe')?'Novilha Prenhe':'Novilha Vazia';
+  if(partos===1) return situacao.includes('renhe')?'Primípara Prenhe':'Primípara';
+  return situacao.includes('renhe')?'Multípara Prenhe':'Multípara';
 }
 function faixaIdade(nasc){
   const m = calcIdadeMeses(nasc);
@@ -495,13 +581,15 @@ function nav(id,btn){
   if(id==='animais')renderAnimais();
   if(id==='inseminacoes'){preencherSelects();renderIns();}
   if(id==='piquetes')renderPiquetes();
+  if(id==='config')renderConfig();
+  if(id==='config')renderConfig();
 }
 
 function renderAll(){
   document.getElementById('top-info').textContent=
     new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'})+
     ' · '+ANIMAIS.length+' animais';
-  renderDash();renderAnimais();renderIns();renderPiquetes();preencherSelects();preencherFiltros();
+  renderDash();renderAnimais();renderIns();renderPiquetes();preencherSelects();preencherFiltros();atualizarSelectsSituacao();
 }
 
 function renderDash(){
@@ -841,6 +929,149 @@ function abrirModal(id){
 }
 function fecharModal(id){document.getElementById(id).style.display='none';}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.style.display='none';}));
+
+
+// ===== CONFIGURAÇÕES =====
+let editCatIdx = null;
+
+function renderConfig(){
+  renderCategorias();
+  renderSituacoes();
+}
+
+function renderCategorias(){
+  const tbody = document.getElementById('tbody-cats');
+  if(!tbody) return;
+  // Populate situacoes checkboxes in form
+  const sw = document.getElementById('fc-situacoes-wrap');
+  if(sw && !sw.children.length){
+    const opts = ['',...SITUACOES.map(s=>s.nome)];
+    sw.innerHTML = opts.map(v=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="${v}"> ${v||'Qualquer'}</label>`).join('');
+  }
+  tbody.innerHTML = CATEGORIAS.length ? CATEGORIAS.map((c,i)=>`
+    <tr>
+      <td style="color:var(--text3)">${i+1}</td>
+      <td><strong>${c.nome}</strong></td>
+      <td>${c.sexo==='M'?'Macho':c.sexo==='F'?'Fêmea':'Ambos'}</td>
+      <td>${c.idade_min||0}m</td>
+      <td>${(c.idade_max||999)>=999?'∞':c.idade_max+'m'}</td>
+      <td>${c.partos_min||0}</td>
+      <td>${(c.partos_max||99)>=99?'∞':c.partos_max}</td>
+      <td style="max-width:180px;white-space:normal;font-size:11px;color:var(--text2)">${(c.situacoes||[]).filter(s=>s).join(', ')||'Qualquer'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn" style="padding:2px 7px;font-size:11px" onclick="editarCategoria(${i})">&#9998;</button>
+        <button class="btn" style="padding:2px 7px;font-size:11px" onclick="moverCategoria(${i},-1)" ${i===0?'disabled':''}>&#8593;</button>
+        <button class="btn" style="padding:2px 7px;font-size:11px" onclick="moverCategoria(${i},1)" ${i===CATEGORIAS.length-1?'disabled':''}>&#8595;</button>
+        <button class="btn btn-danger" style="padding:2px 7px;font-size:11px" onclick="excluirCategoria(${i})">&#10005;</button>
+      </td>
+    </tr>`).join('') : '<tr><td colspan="9" class="empty">Nenhuma categoria. Clique em "+ Nova categoria".</td></tr>';
+}
+
+function renderSituacoes(){
+  const el = document.getElementById('situacoes-list');
+  if(!el) return;
+  el.innerHTML = SITUACOES.map((s,i)=>`
+    <div style="display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 10px">
+      <span class="badge ${s.cor||'bgr'}">${s.nome}</span>
+      <button class="btn btn-danger" style="padding:1px 6px;font-size:11px;border:none" onclick="excluirSituacao(${i})">&#10005;</button>
+    </div>`).join('');
+  atualizarSelectsSituacao();
+}
+
+function atualizarSelectsSituacao(){
+  const opts = SITUACOES.map(s=>`<option>${s.nome}</option>`).join('');
+  ['ea-cat','f-cat'].forEach(id=>{const el=document.getElementById(id);if(el){const v=el.value;el.innerHTML=opts;if(v)el.value=v;}});
+  const optsFiltro='<option value="">Todas as situações</option>'+opts;
+  const fs=document.getElementById('filtro-situacao');if(fs){const v=fs.value;fs.innerHTML=optsFiltro;if(v)fs.value=v;}
+  const catOpts='<option value="">Todas as categorias</option>'+CATEGORIAS.map(c=>`<option>${c.nome}</option>`).join('');
+  const fc=document.getElementById('filtro-status');if(fc){const v=fc.value;fc.innerHTML=catOpts;if(v)fc.value=v;}
+}
+
+function novaCategoriaForm(){
+  editCatIdx=null;
+  document.getElementById('form-cat-titulo').textContent='Nova categoria';
+  ['fc-nome','fc-min','fc-max','fc-pmin','fc-pmax'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('fc-sexo').value='F';
+  // Rebuild situacoes checkboxes
+  const sw=document.getElementById('fc-situacoes-wrap');
+  if(sw){ sw.innerHTML=''; const opts=['',...SITUACOES.map(s=>s.nome)];
+    sw.innerHTML=opts.map(v=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="${v}"> ${v||'Qualquer'}</label>`).join(''); }
+  document.getElementById('form-cat-wrap').style.display='block';
+}
+
+function editarCategoria(idx){
+  editCatIdx=idx;
+  const c=CATEGORIAS[idx];
+  document.getElementById('form-cat-titulo').textContent='Editar — '+c.nome;
+  document.getElementById('fc-nome').value=c.nome;
+  document.getElementById('fc-sexo').value=c.sexo||'F';
+  document.getElementById('fc-min').value=c.idade_min||0;
+  document.getElementById('fc-max').value=(c.idade_max||999)>=999?'':c.idade_max;
+  document.getElementById('fc-pmin').value=c.partos_min||0;
+  document.getElementById('fc-pmax').value=(c.partos_max||99)>=99?'':c.partos_max;
+  const sw=document.getElementById('fc-situacoes-wrap');
+  if(sw){ sw.innerHTML=''; const opts=['',...SITUACOES.map(s=>s.nome)];
+    sw.innerHTML=opts.map(v=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="${v}" ${(c.situacoes||[]).includes(v)?'checked':''}> ${v||'Qualquer'}</label>`).join(''); }
+  document.getElementById('form-cat-wrap').style.display='block';
+}
+
+async function salvarCategoria(){
+  const nome=document.getElementById('fc-nome').value.trim();
+  if(!nome){alert('Nome é obrigatório.');return;}
+  const sits=[];
+  document.querySelectorAll('#fc-situacoes-wrap input:checked').forEach(cb=>sits.push(cb.value));
+  const nova={nome, sexo:document.getElementById('fc-sexo').value,
+    idade_min:parseInt(document.getElementById('fc-min').value)||0,
+    idade_max:parseInt(document.getElementById('fc-max').value)||999,
+    partos_min:parseInt(document.getElementById('fc-pmin').value)||0,
+    partos_max:parseInt(document.getElementById('fc-pmax').value)||99,
+    situacoes:sits};
+  if(editCatIdx!==null) CATEGORIAS[editCatIdx]=nova; else CATEGORIAS.push(nova);
+  await salvarConfiguracoes();
+  document.getElementById('form-cat-wrap').style.display='none';
+  renderCategorias(); renderAnimais();
+}
+
+async function excluirCategoria(idx){
+  if(!confirm('Excluir esta categoria?')) return;
+  CATEGORIAS.splice(idx,1);
+  await salvarConfiguracoes(); renderCategorias(); renderAnimais();
+}
+
+async function moverCategoria(idx,dir){
+  const n=idx+dir;
+  if(n<0||n>=CATEGORIAS.length)return;
+  [CATEGORIAS[idx],CATEGORIAS[n]]=[CATEGORIAS[n],CATEGORIAS[idx]];
+  await salvarConfiguracoes(); renderCategorias(); renderAnimais();
+}
+
+function novaSituacaoForm(){
+  document.getElementById('fs-nome').value='';
+  document.getElementById('fs-cor').value='bgr';
+  document.getElementById('form-situ-wrap').style.display='block';
+}
+
+async function salvarSituacao(){
+  const nome=document.getElementById('fs-nome').value.trim();
+  if(!nome){alert('Nome é obrigatório.');return;}
+  SITUACOES.push({nome,cor:document.getElementById('fs-cor').value});
+  await salvarConfiguracoes();
+  document.getElementById('form-situ-wrap').style.display='none';
+  renderSituacoes();
+}
+
+async function excluirSituacao(idx){
+  if(!confirm('Excluir esta situação?'))return;
+  SITUACOES.splice(idx,1);
+  await salvarConfiguracoes(); renderSituacoes();
+}
+
+async function salvarConfiguracoes(){
+  await Promise.all([
+    sb.from('configuracoes').upsert({chave:'categorias',valor:JSON.stringify(CATEGORIAS)}),
+    sb.from('configuracoes').upsert({chave:'situacoes',valor:JSON.stringify(SITUACOES)}),
+  ]);
+}
 
 carregarTudo();
 
