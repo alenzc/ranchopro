@@ -144,6 +144,7 @@ tr:hover td{background:var(--brand-light)}
   <button class="nb" onclick="nav('genealogia',this)">&#9632; Genealogia</button>
   <button class="nb" onclick="nav('piquetes',this)">&#9632; Piquetes</button>
   <button class="nb" onclick="nav('mapa',this)">&#9632; Mapa de Rebanho</button>
+  <button class="nb" onclick="nav('historico',this)">&#9632; Histórico</button>
   <button class="nb" onclick="nav('config',this)">&#9881; Configurações</button>
 </div>
 
@@ -321,6 +322,32 @@ tr:hover td{background:var(--brand-light)}
             </tr>
           </thead>
           <tbody id="tbody-mapa"><tr><td colspan="14" class="loading">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="sec-historico" class="sec">
+    <div class="sec-header">
+      <span class="sec-title">Histórico — Saídas do plantel</span>
+      <button class="btn" onclick="exportarHistorico()">&#8595; Exportar Excel</button>
+    </div>
+    <div class="sr">
+      <select id="hist-filtro-tipo" onchange="renderHistorico()">
+        <option value="">Vendas e Mortes</option>
+        <option value="Venda">Somente Vendas</option>
+        <option value="Morte">Somente Mortes</option>
+      </select>
+      <input type="text" id="hist-busca" placeholder="Buscar por brinco ou nome..." oninput="renderHistorico()" style="min-width:200px">
+    </div>
+    <div class="card">
+      <div class="tw">
+        <table><thead><tr>
+          <th>Data</th><th>Tipo</th><th>Brinco</th><th>Nome</th><th>Raça</th><th>Sexo</th>
+          <th>Idade na saída</th><th>Peso</th><th>Piquete</th>
+          <th>Destino / Causa</th><th>Valor (R$)</th><th>Obs</th>
+        </tr></thead>
+        <tbody id="tbody-historico"><tr><td colspan="12" class="loading">Carregando...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -509,6 +536,7 @@ function nav(id,btn){
   if(id==='inseminacoes'){preencherSelects();renderIns();}
   if(id==='piquetes')renderPiquetes();
   if(id==='mapa')renderMapa();
+  if(id==='historico')renderHistorico();
   if(id==='config')renderConfig();
 }
 
@@ -855,12 +883,11 @@ function resetFormPiquete(){
 
 async function excluirPiquete(nome){
   const n=ANIMAIS.filter(a=>a.piquete===nome).length;
-  const msg=n>0
-    ? `O piquete "${nome}" tem ${n} animal(is) vinculado(s). Ao excluir, esses animais ficarão sem piquete. Deseja continuar?`
-    : `Excluir o piquete "${nome}"? Esta ação não pode ser desfeita.`;
-  if(!confirm(msg))return;
-  // Remove piquete from animals first
-  if(n>0) await sb.from('animais').update({piquete:null}).eq('piquete',nome);
+  if(n>0){
+    alert(`Não é possível excluir o piquete "${nome}" pois há ${n} animal(is) vinculado(s) a ele.\n\nTransfira os animais para outro piquete antes de excluir.`);
+    return;
+  }
+  if(!confirm(`Excluir o piquete "${nome}"? Esta ação não pode ser desfeita.`))return;
   const {error}=await sb.from('piquetes').delete().eq('nome',nome);
   if(error){alert('Erro ao excluir: '+error.message);return;}
   await carregarTudo();
@@ -886,6 +913,118 @@ function fecharModal(id){document.getElementById(id).style.display='none';}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.style.display='none';}));
 
 
+
+
+// ===== SAÍDAS (VENDA / MORTE) =====
+let saidaTipo = 'Venda';
+
+function abrirSaida(tipo){
+  saidaTipo = tipo;
+  const id = animalEditandoId;
+  const a = ANIMAIS.find(x=>x.id===id);
+  if(!a) return;
+  document.getElementById('saida-titulo').textContent = tipo === 'Venda' ? '$ Registrar venda' : '✝ Registrar morte';
+  document.getElementById('saida-animal-label').textContent = id + (a.nome ? ' — ' + a.nome : '');
+  document.getElementById('saida-data').value = new Date().toISOString().split('T')[0];
+  document.getElementById('saida-destino').value = '';
+  document.getElementById('saida-peso').value = calcPesoAtual(id) || '';
+  document.getElementById('saida-valor').value = '';
+  document.getElementById('saida-obs').value = '';
+  document.getElementById('saida-destino-label').textContent = tipo === 'Venda' ? 'Destino / Comprador' : 'Causa da morte';
+  document.getElementById('saida-valor-label').textContent = tipo === 'Venda' ? 'Valor recebido (R$)' : 'Valor de seguro (R$)';
+  fecharModal('modal-editar-animal');
+  document.getElementById('modal-saida').style.display = 'flex';
+}
+
+async function confirmarSaida(){
+  const id = animalEditandoId;
+  const a = ANIMAIS.find(x=>x.id===id);
+  if(!a){alert('Animal não encontrado.');return;}
+  const data = document.getElementById('saida-data').value;
+  if(!data){alert('Informe a data.');return;}
+  const registro = {
+    id: 'h_' + Date.now(),
+    animal_id: id,
+    nome: a.nome||null,
+    raca: a.raca||null,
+    sexo: a.sexo||null,
+    nasc: a.nasc||null,
+    piquete: a.piquete||null,
+    tipo: saidaTipo,
+    data,
+    destino: document.getElementById('saida-destino').value.trim()||null,
+    peso: parseFloat(document.getElementById('saida-peso').value)||null,
+    valor: parseFloat(document.getElementById('saida-valor').value)||null,
+    obs: document.getElementById('saida-obs').value.trim()||null,
+  };
+  // Save to historico table
+  const {error: he} = await sb.from('historico').insert(registro);
+  if(he){alert('Erro ao salvar histórico: '+he.message);return;}
+  // Remove from animais (also remove pesagens and inseminacoes)
+  await sb.from('pesagens').delete().eq('animal_id', id);
+  await sb.from('inseminacoes').delete().eq('femea', id);
+  const {error: ae} = await sb.from('animais').delete().eq('id', id);
+  if(ae){alert('Erro ao remover animal: '+ae.message);return;}
+  fecharModal('modal-saida');
+  await carregarTudo();
+  alert(`Animal ${id} registrado como ${saidaTipo.toLowerCase()} com sucesso!`);
+}
+
+// ===== HISTÓRICO =====
+let HISTORICO = [];
+
+async function carregarHistorico(){
+  const {data} = await sb.from('historico').select('*').order('data', {ascending:false});
+  HISTORICO = data||[];
+}
+
+function renderHistorico(){
+  const tipo = document.getElementById('hist-filtro-tipo').value;
+  const q = (document.getElementById('hist-busca').value||'').toLowerCase();
+  const lista = HISTORICO.filter(h => {
+    const tipoOk = !tipo || h.tipo === tipo;
+    const buscaOk = !q || (h.animal_id+' '+(h.nome||'')).toLowerCase().includes(q);
+    return tipoOk && buscaOk;
+  });
+  const tipoBadge = {'Venda':'bb','Morte':'bp'};
+  document.getElementById('tbody-historico').innerHTML = lista.length ? lista.map(h => {
+    const idadeNaSaida = h.nasc && h.data ? (() => {
+      const d=new Date(h.nasc), s=new Date(h.data);
+      let a=s.getFullYear()-d.getFullYear(), m=s.getMonth()-d.getMonth();
+      if(m<0){a--;m+=12;}
+      return a>0?`${a}a ${m}m`:`${m}m`;
+    })() : '—';
+    return `<tr>
+      <td>${fmtData(h.data)}</td>
+      <td><span class="badge ${tipoBadge[h.tipo]||'bgr'}">${h.tipo}</span></td>
+      <td><strong>${h.animal_id}</strong></td>
+      <td>${h.nome||'—'}</td>
+      <td>${h.raca||'—'}</td>
+      <td>${h.sexo==='F'?'Fêmea':h.sexo==='M'?'Macho':'—'}</td>
+      <td>${idadeNaSaida}</td>
+      <td>${h.peso?h.peso+' kg':'—'}</td>
+      <td>${h.piquete||'—'}</td>
+      <td>${h.destino||'—'}</td>
+      <td>${h.valor?'R$ '+Number(h.valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
+      <td>${h.obs||'—'}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="12" class="empty">Nenhum registro encontrado.</td></tr>';
+}
+
+function exportarHistorico(){
+  const dados = HISTORICO.map(h => ({
+    'Data': fmtData(h.data), 'Tipo': h.tipo,
+    'Brinco': h.animal_id, 'Nome': h.nome||'',
+    'Raça': h.raca||'', 'Sexo': h.sexo==='F'?'Fêmea':'Macho',
+    'Nascimento': fmtData(h.nasc),
+    'Peso na saída (kg)': h.peso||'',
+    'Piquete': h.piquete||'',
+    'Destino/Causa': h.destino||'',
+    'Valor (R$)': h.valor||'',
+    'Observação': h.obs||'',
+  }));
+  exportarCSV(dados, 'historico_saidas_agrocampos.csv');
+}
 
 // ===== MAPA DE REBANHO =====
 function idxFaixa(nasc, sexo) {
@@ -1550,7 +1689,8 @@ function exportarTudo() {
     </div>
     <div class="modal-btns">
       <button class="btn btn-s" onclick="salvarEdicaoAnimal()">&#10003; Salvar alterações</button>
-      <button class="btn btn-danger" onclick="confirmarExcluirAnimal()">&#128465; Excluir</button>
+      <button class="btn" style="background:#1565c0;color:#fff;border-color:#1565c0" onclick="abrirSaida('Venda')">&#36; Registrar venda</button>
+      <button class="btn" style="background:#5B3B8C;color:#fff;border-color:#5B3B8C" onclick="abrirSaida('Morte')">&#10013; Registrar morte</button>
       <button class="btn" onclick="fecharModal('modal-editar-animal')">Cancelar</button>
     </div>
   </div>
@@ -1578,6 +1718,35 @@ function exportarTudo() {
     <div class="modal-btns">
       <button class="btn btn-s" onclick="processarImportacao()">&#8593; Importar dados</button>
       <button class="btn" onclick="fecharModal('modal-importar')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL SAÍDA (VENDA / MORTE) -->
+<div id="modal-saida" class="overlay" style="display:none">
+  <div class="modal">
+    <h3 id="saida-titulo">Registrar saída</h3>
+    <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px">
+      Animal: <strong id="saida-animal-label"></strong>
+    </div>
+    <div class="fg">
+      <div><div class="fl">Data *</div><input class="fi" type="date" id="saida-data"></div>
+      <div><div class="fl" id="saida-destino-label">Destino / Comprador</div><input class="fi" id="saida-destino" placeholder="ex: Frigorífico Minerva"></div>
+    </div>
+    <div class="fg">
+      <div><div class="fl">Peso na saída (kg)</div><input class="fi" type="number" id="saida-peso" placeholder="opcional"></div>
+      <div><div class="fl" id="saida-valor-label">Valor recebido (R$)</div><input class="fi" type="number" id="saida-valor" placeholder="opcional"></div>
+    </div>
+    <div class="fg full">
+      <div><div class="fl">Observação</div><input class="fi" id="saida-obs" placeholder="opcional"></div>
+    </div>
+    <div style="background:#FFF3E0;border:1px solid #FFE0B2;border-radius:8px;padding:10px 12px;margin-top:6px;font-size:12px;color:#E65100">
+      &#9888; O animal será <strong>removido do plantel ativo</strong> e registrado no histórico de saídas.
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-s" onclick="confirmarSaida()">&#10003; Confirmar saída</button>
+      <button class="btn" onclick="fecharModal('modal-saida')">Cancelar</button>
     </div>
   </div>
 </div>
