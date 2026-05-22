@@ -810,19 +810,34 @@ function abrirEditarPiquete(nome){
   document.getElementById('fpq-tipo').value=p.tipo||'Recria geral';
   document.getElementById('fpq-cap').value=p.cap||'';
   document.getElementById('fpq-ha').value=p.ha||'';
-  document.getElementById('fpq-nome').disabled=true;
+  document.getElementById('fpq-nome').disabled=false;
   document.getElementById('modal-piquete-titulo').textContent='Editar piquete — '+p.nome;
   document.getElementById('btn-salvar-piquete').textContent='✓ Salvar alterações';
   document.getElementById('btn-salvar-piquete').onclick=()=>salvarEdicaoPiquete(nome);
   document.getElementById('modal-piquete').style.display='flex';
 }
 
-async function salvarEdicaoPiquete(nome){
+async function salvarEdicaoPiquete(nomeOriginal){
+  const novoNome=document.getElementById('fpq-nome').value.trim();
   const tipo=document.getElementById('fpq-tipo').value;
   const cap=parseInt(document.getElementById('fpq-cap').value)||0;
   const ha=parseFloat(document.getElementById('fpq-ha').value)||0;
-  const {error}=await sb.from('piquetes').update({tipo,cap,ha}).eq('nome',nome);
-  if(error){alert('Erro: '+error.message);return;}
+  if(!novoNome){alert('Nome é obrigatório.');return;}
+  // If name changed: update all animals pointing to old name, then update piquete
+  if(novoNome !== nomeOriginal){
+    const animaisNoPiquete = ANIMAIS.filter(a=>a.piquete===nomeOriginal);
+    if(animaisNoPiquete.length>0){
+      const {error:ea}=await sb.from('animais').update({piquete:novoNome}).eq('piquete',nomeOriginal);
+      if(ea){alert('Erro ao atualizar animais: '+ea.message);return;}
+    }
+    // Delete old and insert new (Supabase primary key can't be updated directly)
+    await sb.from('piquetes').delete().eq('nome',nomeOriginal);
+    const {error}=await sb.from('piquetes').insert({nome:novoNome,tipo,cap,ha});
+    if(error){alert('Erro: '+error.message);return;}
+  } else {
+    const {error}=await sb.from('piquetes').update({tipo,cap,ha}).eq('nome',nomeOriginal);
+    if(error){alert('Erro: '+error.message);return;}
+  }
   fecharModal('modal-piquete');
   resetFormPiquete();
   await carregarTudo();
@@ -836,6 +851,19 @@ function resetFormPiquete(){
   document.getElementById('modal-piquete-titulo').textContent='Adicionar piquete / módulo';
   document.getElementById('btn-salvar-piquete').textContent='✓ Salvar';
   document.getElementById('btn-salvar-piquete').onclick=salvarPiquete;
+}
+
+async function excluirPiquete(nome){
+  const n=ANIMAIS.filter(a=>a.piquete===nome).length;
+  const msg=n>0
+    ? `O piquete "${nome}" tem ${n} animal(is) vinculado(s). Ao excluir, esses animais ficarão sem piquete. Deseja continuar?`
+    : `Excluir o piquete "${nome}"? Esta ação não pode ser desfeita.`;
+  if(!confirm(msg))return;
+  // Remove piquete from animals first
+  if(n>0) await sb.from('animais').update({piquete:null}).eq('piquete',nome);
+  const {error}=await sb.from('piquetes').delete().eq('nome',nome);
+  if(error){alert('Erro ao excluir: '+error.message);return;}
+  await carregarTudo();
 }
 
 async function salvarPiquete(){
