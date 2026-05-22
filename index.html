@@ -143,6 +143,7 @@ tr:hover td{background:var(--brand-light)}
   <button class="nb" onclick="nav('inseminacoes',this)">&#9632; Inseminações</button>
   <button class="nb" onclick="nav('genealogia',this)">&#9632; Genealogia</button>
   <button class="nb" onclick="nav('piquetes',this)">&#9632; Piquetes</button>
+  <button class="nb" onclick="nav('mapa',this)">&#9632; Mapa de Rebanho</button>
   <button class="nb" onclick="nav('config',this)">&#9881; Configurações</button>
 </div>
 
@@ -288,118 +289,44 @@ tr:hover td{background:var(--brand-light)}
     </div>
     <div class="pq-grid" id="grid-pq"><div class="loading">Carregando...</div></div>
   </div>
-
-</div>
-
-<!-- MODAIS -->
-<div id="modal-animal" class="overlay" style="display:none">
-  <div class="modal">
-    <h3>Cadastrar novo animal</h3>
-    <div class="fg">
-      <div><div class="fl">Brinco / ID *</div><input class="fi" id="f-brinco" placeholder="ex: 0512"></div>
-      <div><div class="fl">Nome</div><input class="fi" id="f-nome" placeholder="ex: Mimosa"></div>
+  <div id="sec-mapa" class="sec">
+    <div class="sec-header">
+      <span class="sec-title">Mapa de Rebanho</span>
+      <button class="btn" onclick="exportarMapaRebanho()">&#8595; Exportar Excel</button>
     </div>
-    <div class="fg">
-      <div><div class="fl">Raça *</div>
-        <select class="fi" id="f-raca"><option>Nelore</option><option>Girolando</option><option>Angus</option><option>Tabapuã</option><option>Brahman</option><option>Senepol</option><option>Gir</option><option>Cruzado</option></select>
+    <div class="card" style="overflow-x:auto">
+      <div class="tw">
+        <table id="tab-mapa" style="min-width:900px">
+          <thead>
+            <tr style="background:var(--bg3)">
+              <th rowspan="2" style="min-width:80px">PIQUETE / SUBDIVISÃO</th>
+              <th rowspan="2" style="min-width:120px">LOTE</th>
+              <th colspan="5" style="text-align:center;border-bottom:1px solid var(--border)">MACHOS</th>
+              <th colspan="5" style="text-align:center;border-bottom:1px solid var(--border)">FÊMEAS</th>
+              <th rowspan="2" style="text-align:center">TOTAL (LOTE)</th>
+              <th rowspan="2" style="text-align:center">TOTAL (PIQUETE)</th>
+              <th rowspan="2" style="text-align:center">UAS/HA</th>
+            </tr>
+            <tr style="background:var(--bg3)">
+              <th style="text-align:center">0–8</th>
+              <th style="text-align:center">9–12</th>
+              <th style="text-align:center">13–24</th>
+              <th style="text-align:center">25–36</th>
+              <th style="text-align:center">36+</th>
+              <th style="text-align:center">0–8</th>
+              <th style="text-align:center">9–12</th>
+              <th style="text-align:center">13–24</th>
+              <th style="text-align:center">25–36</th>
+              <th style="text-align:center">36+</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-mapa"><tr><td colspan="14" class="loading">Carregando...</td></tr></tbody>
+        </table>
       </div>
-      <div><div class="fl">Sexo *</div>
-        <select class="fi" id="f-sexo"><option value="F">Fêmea</option><option value="M">Macho</option></select>
-      </div>
-    </div>
-    <div class="fg">
-      <div><div class="fl">Data de nascimento</div><input class="fi" type="date" id="f-nasc"></div>
-      <div><div class="fl">Peso inicial (kg)</div><input class="fi" type="number" id="f-peso" placeholder="ex: 320"></div>
-    </div>
-    <div class="fg">
-      <div><div class="fl">Piquete</div><select class="fi" id="f-piquete"></select></div>
-      <div><div class="fl">Categoria</div>
-        <select class="fi" id="f-cat">
-              <option>Bezerra</option><option>Bezerro</option>
-              <option>Novilha Vazia</option><option>Novilha Prenhe</option>
-              <option>Primípara</option><option>Primípara Prenhe</option>
-              <option>Multípara</option><option>Multípara Prenhe</option>
-              <option>Touro Reprodutor</option><option>Garrote</option>
-            </select>
-      </div>
-    </div>
-    <div class="fg">
-      <div><div class="fl">Pai (brinco)</div><input class="fi" id="f-pai" placeholder="ex: 0003"></div>
-      <div><div class="fl">Mãe (brinco)</div><input class="fi" id="f-mae" placeholder="ex: 0108"></div>
-    </div>
-    <div class="fg">
-      <div><div class="fl">Qtd. de partos</div><input class="fi" type="number" id="f-partos" placeholder="0" min="0"></div>
-      <div><div class="fl">Observação</div><input class="fi" id="f-obs" placeholder="opcional"></div>
-    </div>
-    <div class="modal-btns">
-      <button class="btn btn-s" onclick="salvarAnimal()">&#10003; Salvar animal</button>
-      <button class="btn" onclick="fecharModal('modal-animal')">Cancelar</button>
     </div>
   </div>
-</div>
 
-<div id="modal-peso" class="overlay" style="display:none">
-  <div class="modal">
-    <h3>Registrar pesagem</h3>
-    <div class="fg">
-      <div><div class="fl">Animal *</div><select class="fi" id="fp-brinco"></select></div>
-      <div><div class="fl">Data *</div><input class="fi" type="date" id="fp-data"></div>
-    </div>
-    <div class="fg">
-      <div><div class="fl">Peso (kg) *</div><input class="fi" type="number" id="fp-peso" placeholder="ex: 390"></div>
-      <div><div class="fl">Observação</div><input class="fi" id="fp-obs" placeholder="opcional"></div>
-    </div>
-    <div class="modal-btns">
-      <button class="btn btn-s" onclick="salvarPeso()">&#10003; Salvar</button>
-      <button class="btn" onclick="fecharModal('modal-peso')">Cancelar</button>
-    </div>
-  </div>
-</div>
 
-<div id="modal-ins" class="overlay" style="display:none">
-  <div class="modal">
-    <h3>Registrar inseminação</h3>
-    <div class="fg">
-      <div><div class="fl">Fêmea *</div><select class="fi" id="fi-femea"></select></div>
-      <div><div class="fl">Data *</div><input class="fi" type="date" id="fi-data"></div>
-    </div>
-    <div class="fg">
-      <div><div class="fl">Touro / Sêmen *</div><input class="fi" id="fi-touro" placeholder="ex: Maverick FIV"></div>
-      <div><div class="fl">Técnico</div><input class="fi" id="fi-tecnico" placeholder="ex: Dr. Carvalho"></div>
-    </div>
-    <div class="fg">
-      <div><div class="fl">Tipo</div>
-        <select class="fi" id="fi-tipo"><option>IA (Inseminação Artificial)</option><option>IATF (Tempo Fixo)</option><option>Monta Natural</option><option>TE (Transferência de Embrião)</option></select>
-      </div>
-      <div><div class="fl">Resultado DG</div>
-        <select class="fi" id="fi-resultado"><option value="Aguardando DG">Aguardando DG</option><option value="Prenhe">Prenhe</option><option value="Não pegou">Não pegou</option></select>
-      </div>
-    </div>
-    <div class="modal-btns">
-      <button class="btn btn-s" onclick="salvarIns()">&#10003; Salvar</button>
-      <button class="btn" onclick="fecharModal('modal-ins')">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<div id="modal-piquete" class="overlay" style="display:none">
-  <div class="modal">
-    <h3 id="modal-piquete-titulo">Adicionar piquete / módulo</h3>
-    <div class="fg">
-      <div><div class="fl">Nome *</div><input class="fi" id="fpq-nome" placeholder="ex: P-10"></div>
-      <div><div class="fl">Tipo</div>
-        <select class="fi" id="fpq-tipo"><option>Maternidade</option><option>Gestantes</option><option>Novilhas</option><option>Bezerros</option><option>Touros</option><option>Recria geral</option><option>Matriz geral</option></select>
-      </div>
-    </div>
-    <div class="fg">
-      <div><div class="fl">Capacidade máx. (animais)</div><input class="fi" type="number" id="fpq-cap" placeholder="ex: 80"></div>
-      <div><div class="fl">Hectares</div><input class="fi" type="number" id="fpq-ha" placeholder="ex: 12"></div>
-    </div>
-    <div class="modal-btns">
-      <button id="btn-salvar-piquete" class="btn btn-s" onclick="salvarPiquete()">&#10003; Salvar</button>
-      <button class="btn" onclick="fecharModal('modal-piquete');resetFormPiquete()">Cancelar</button>
-    </div>
-  </div>
   <div id="sec-config" class="sec">
     <div class="sec-header">
       <span class="sec-title">&#9881; Configurações do sistema</span>
@@ -581,7 +508,7 @@ function nav(id,btn){
   if(id==='animais')renderAnimais();
   if(id==='inseminacoes'){preencherSelects();renderIns();}
   if(id==='piquetes')renderPiquetes();
-  if(id==='config')renderConfig();
+  if(id==='mapa')renderMapa();
   if(id==='config')renderConfig();
 }
 
@@ -931,6 +858,119 @@ function fecharModal(id){document.getElementById(id).style.display='none';}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.style.display='none';}));
 
 
+
+// ===== MAPA DE REBANHO =====
+function idxFaixa(nasc, sexo) {
+  const m = calcIdadeMeses(nasc);
+  if (m === null) return null;
+  const faixas = [
+    {min:0,max:8}, {min:9,max:12}, {min:13,max:24}, {min:25,max:36}, {min:37,max:9999}
+  ];
+  return faixas.findIndex(f => m >= f.min && m <= f.max);
+}
+
+function renderMapa() {
+  // Group animals by piquete → lote
+  const grupos = {};
+  ANIMAIS.forEach(a => {
+    const piq = a.piquete || 'Sem Piquete';
+    const lote = (a.lote) || 'Sem Lote';
+    const key = piq + '|||' + lote;
+    if (!grupos[key]) grupos[key] = { piq, lote, M: [0,0,0,0,0], F: [0,0,0,0,0], total: 0 };
+    const fi = idxFaixa(a.nasc, a.sexo);
+    if (fi !== null && fi >= 0) {
+      grupos[key][a.sexo === 'M' ? 'M' : 'F'][fi]++;
+    }
+    grupos[key].total++;
+  });
+
+  // Group by piquete for totals
+  const piqTotais = {};
+  Object.values(grupos).forEach(g => {
+    if (!piqTotais[g.piq]) piqTotais[g.piq] = 0;
+    piqTotais[g.piq] += g.total;
+  });
+
+  // Sort by piquete then lote
+  const rows = Object.values(grupos).sort((a,b) => {
+    if (a.piq < b.piq) return -1;
+    if (a.piq > b.piq) return 1;
+    return a.lote.localeCompare(b.lote);
+  });
+
+  let html = '';
+  let lastPiq = null;
+  let piqRowCount = {};
+  // Count rows per piquete for rowspan
+  rows.forEach(r => { piqRowCount[r.piq] = (piqRowCount[r.piq]||0) + 1; });
+
+  rows.forEach((r, i) => {
+    const isNewPiq = r.piq !== lastPiq;
+    const piqTotal = piqTotais[r.piq];
+    const piq = PIQUETES.find(p => p.nome === r.piq);
+    const ha = piq && piq.ha ? piq.ha : null;
+    const uas = ha ? (piqTotal / ha).toFixed(2) : '—';
+
+    const fmtN = n => n > 0 ? `<td style="text-align:center;font-weight:600">${n}</td>` : `<td style="text-align:center;color:var(--text3)">—</td>`;
+
+    html += `<tr${isNewPiq ? ' style="border-top:2px solid var(--border2)"' : ''}>`;
+    if (isNewPiq) {
+      html += `<td rowspan="${piqRowCount[r.piq]}" style="font-weight:700;vertical-align:top;padding-top:10px;color:var(--brand)">${r.piq}</td>`;
+    }
+    html += `<td style="font-size:11px;color:var(--text2)">${r.lote}</td>`;
+    r.M.forEach(n => html += fmtN(n));
+    r.F.forEach(n => html += fmtN(n));
+    html += `<td style="text-align:center;font-weight:700">${r.total||'—'}</td>`;
+    if (isNewPiq) {
+      html += `<td rowspan="${piqRowCount[r.piq]}" style="text-align:center;font-weight:700;vertical-align:middle;color:var(--brand)">${piqTotal}</td>`;
+      html += `<td rowspan="${piqRowCount[r.piq]}" style="text-align:center;vertical-align:middle;font-size:11px">${uas}</td>`;
+    }
+    html += '</tr>';
+    lastPiq = r.piq;
+  });
+
+  // Totals row
+  const totM = [0,0,0,0,0], totF = [0,0,0,0,0];
+  rows.forEach(r => { r.M.forEach((n,i)=>totM[i]+=n); r.F.forEach((n,i)=>totF[i]+=n); });
+  const grandTotal = ANIMAIS.length;
+  html += `<tr style="background:var(--bg3);font-weight:700;border-top:2px solid var(--border2)">
+    <td>TOTAL</td><td></td>
+    ${totM.map(n=>`<td style="text-align:center">${n||'—'}</td>`).join('')}
+    ${totF.map(n=>`<td style="text-align:center">${n||'—'}</td>`).join('')}
+    <td style="text-align:center">${grandTotal}</td>
+    <td style="text-align:center">${grandTotal}</td>
+    <td></td>
+  </tr>`;
+
+  document.getElementById('tbody-mapa').innerHTML = html;
+}
+
+function exportarMapaRebanho() {
+  const dados = [];
+  const grupos = {};
+  ANIMAIS.forEach(a => {
+    const piq = a.piquete || 'Sem Piquete';
+    const lote = a.lote || 'Sem Lote';
+    const key = piq + '|||' + lote;
+    if (!grupos[key]) grupos[key] = { piq, lote, M:[0,0,0,0,0], F:[0,0,0,0,0], total:0 };
+    const fi = idxFaixa(a.nasc, a.sexo);
+    if (fi !== null && fi >= 0) grupos[key][a.sexo==='M'?'M':'F'][fi]++;
+    grupos[key].total++;
+  });
+  Object.values(grupos).sort((a,b)=>a.piq.localeCompare(b.piq)||a.lote.localeCompare(b.lote)).forEach(r => {
+    const piq = PIQUETES.find(p=>p.nome===r.piq);
+    const ha = piq&&piq.ha?piq.ha:0;
+    dados.push({
+      'Piquete/Subdivisão': r.piq, 'Lote': r.lote,
+      'Machos 0-8m': r.M[0], 'Machos 9-12m': r.M[1], 'Machos 13-24m': r.M[2], 'Machos 25-36m': r.M[3], 'Machos 36+m': r.M[4],
+      'Fêmeas 0-8m': r.F[0], 'Fêmeas 9-12m': r.F[1], 'Fêmeas 13-24m': r.F[2], 'Fêmeas 25-36m': r.F[3], 'Fêmeas 36+m': r.F[4],
+      'Total (Lote)': r.total,
+      'UAS/HA': ha ? (r.total/ha).toFixed(2) : '—',
+    });
+  });
+  exportarCSV(dados, 'mapa_rebanho_agrocampos.csv');
+}
+
 // ===== CONFIGURAÇÕES =====
 let editCatIdx = null;
 
@@ -1240,6 +1280,33 @@ function ajustarFonte(delta) {
   fontSize = Math.min(18, Math.max(10, fontSize + delta));
   document.documentElement.style.setProperty('--font-size', fontSize + 'px');
   document.getElementById('font-label').textContent = fontSize + 'px';
+  // Apply to all text elements directly
+  document.querySelectorAll('td, th, .badge, .btn, .fl, .mc-l, .mc-v, .mc-s, .ct, .pq-n, label, select, input, p, span:not(.sort-icon), .alert-row div').forEach(el => {
+    const fs = window.getComputedStyle(el).fontSize;
+    const cur = parseFloat(fs);
+    // Only adjust elements that have explicit small sizes
+    if (cur > 0 && cur <= 16) {
+      el.style.fontSize = '';
+    }
+  });
+  document.body.style.fontSize = fontSize + 'px';
+  // Force table cells
+  const style = document.getElementById('dynamic-font-style') || (() => {
+    const s = document.createElement('style');
+    s.id = 'dynamic-font-style';
+    document.head.appendChild(s);
+    return s;
+  })();
+  style.textContent = `
+    body, td, th, .btn, .fl, label, select, input, .badge,
+    .mc-l, .mc-s, .ct, p, .pq-card div, .alert-row div,
+    .nb, .modal *, .sr *, .sec * { font-size: ${fontSize}px !important; }
+    .mc-v { font-size: ${fontSize + 8}px !important; }
+    .pq-val { font-size: ${fontSize + 8}px !important; }
+    th { font-size: ${Math.max(10, fontSize - 1)}px !important; }
+    .badge { font-size: ${Math.max(9, fontSize - 2)}px !important; }
+    .topbar-title { font-size: ${fontSize + 2}px !important; }
+  `;
 }
 
 // ===== COLUMN TOGGLE =====
@@ -1489,3 +1556,116 @@ function exportarTudo() {
 
 </body>
 </html>
+
+</div>
+
+<!-- MODAIS -->
+<div id="modal-animal" class="overlay" style="display:none">
+  <div class="modal">
+    <h3>Cadastrar novo animal</h3>
+    <div class="fg">
+      <div><div class="fl">Brinco / ID *</div><input class="fi" id="f-brinco" placeholder="ex: 0512"></div>
+      <div><div class="fl">Nome</div><input class="fi" id="f-nome" placeholder="ex: Mimosa"></div>
+    </div>
+    <div class="fg">
+      <div><div class="fl">Raça *</div>
+        <select class="fi" id="f-raca"><option>Nelore</option><option>Girolando</option><option>Angus</option><option>Tabapuã</option><option>Brahman</option><option>Senepol</option><option>Gir</option><option>Cruzado</option></select>
+      </div>
+      <div><div class="fl">Sexo *</div>
+        <select class="fi" id="f-sexo"><option value="F">Fêmea</option><option value="M">Macho</option></select>
+      </div>
+    </div>
+    <div class="fg">
+      <div><div class="fl">Data de nascimento</div><input class="fi" type="date" id="f-nasc"></div>
+      <div><div class="fl">Peso inicial (kg)</div><input class="fi" type="number" id="f-peso" placeholder="ex: 320"></div>
+    </div>
+    <div class="fg">
+      <div><div class="fl">Piquete</div><select class="fi" id="f-piquete"></select></div>
+      <div><div class="fl">Categoria</div>
+        <select class="fi" id="f-cat">
+              <option>Bezerra</option><option>Bezerro</option>
+              <option>Novilha Vazia</option><option>Novilha Prenhe</option>
+              <option>Primípara</option><option>Primípara Prenhe</option>
+              <option>Multípara</option><option>Multípara Prenhe</option>
+              <option>Touro Reprodutor</option><option>Garrote</option>
+            </select>
+      </div>
+    </div>
+    <div class="fg">
+      <div><div class="fl">Pai (brinco)</div><input class="fi" id="f-pai" placeholder="ex: 0003"></div>
+      <div><div class="fl">Mãe (brinco)</div><input class="fi" id="f-mae" placeholder="ex: 0108"></div>
+    </div>
+    <div class="fg">
+      <div><div class="fl">Qtd. de partos</div><input class="fi" type="number" id="f-partos" placeholder="0" min="0"></div>
+      <div><div class="fl">Observação</div><input class="fi" id="f-obs" placeholder="opcional"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-s" onclick="salvarAnimal()">&#10003; Salvar animal</button>
+      <button class="btn" onclick="fecharModal('modal-animal')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-peso" class="overlay" style="display:none">
+  <div class="modal">
+    <h3>Registrar pesagem</h3>
+    <div class="fg">
+      <div><div class="fl">Animal *</div><select class="fi" id="fp-brinco"></select></div>
+      <div><div class="fl">Data *</div><input class="fi" type="date" id="fp-data"></div>
+    </div>
+    <div class="fg">
+      <div><div class="fl">Peso (kg) *</div><input class="fi" type="number" id="fp-peso" placeholder="ex: 390"></div>
+      <div><div class="fl">Observação</div><input class="fi" id="fp-obs" placeholder="opcional"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-s" onclick="salvarPeso()">&#10003; Salvar</button>
+      <button class="btn" onclick="fecharModal('modal-peso')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-ins" class="overlay" style="display:none">
+  <div class="modal">
+    <h3>Registrar inseminação</h3>
+    <div class="fg">
+      <div><div class="fl">Fêmea *</div><select class="fi" id="fi-femea"></select></div>
+      <div><div class="fl">Data *</div><input class="fi" type="date" id="fi-data"></div>
+    </div>
+    <div class="fg">
+      <div><div class="fl">Touro / Sêmen *</div><input class="fi" id="fi-touro" placeholder="ex: Maverick FIV"></div>
+      <div><div class="fl">Técnico</div><input class="fi" id="fi-tecnico" placeholder="ex: Dr. Carvalho"></div>
+    </div>
+    <div class="fg">
+      <div><div class="fl">Tipo</div>
+        <select class="fi" id="fi-tipo"><option>IA (Inseminação Artificial)</option><option>IATF (Tempo Fixo)</option><option>Monta Natural</option><option>TE (Transferência de Embrião)</option></select>
+      </div>
+      <div><div class="fl">Resultado DG</div>
+        <select class="fi" id="fi-resultado"><option value="Aguardando DG">Aguardando DG</option><option value="Prenhe">Prenhe</option><option value="Não pegou">Não pegou</option></select>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-s" onclick="salvarIns()">&#10003; Salvar</button>
+      <button class="btn" onclick="fecharModal('modal-ins')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-piquete" class="overlay" style="display:none">
+  <div class="modal">
+    <h3 id="modal-piquete-titulo">Adicionar piquete / módulo</h3>
+    <div class="fg">
+      <div><div class="fl">Nome *</div><input class="fi" id="fpq-nome" placeholder="ex: P-10"></div>
+      <div><div class="fl">Tipo</div>
+        <select class="fi" id="fpq-tipo"><option>Maternidade</option><option>Gestantes</option><option>Novilhas</option><option>Bezerros</option><option>Touros</option><option>Recria geral</option><option>Matriz geral</option></select>
+      </div>
+    </div>
+    <div class="fg">
+      <div><div class="fl">Capacidade máx. (animais)</div><input class="fi" type="number" id="fpq-cap" placeholder="ex: 80"></div>
+      <div><div class="fl">Hectares</div><input class="fi" type="number" id="fpq-ha" placeholder="ex: 12"></div>
+    </div>
+    <div class="modal-btns">
+      <button id="btn-salvar-piquete" class="btn btn-s" onclick="salvarPiquete()">&#10003; Salvar</button>
+      <button class="btn" onclick="fecharModal('modal-piquete');resetFormPiquete()">Cancelar</button>
+    </div>
+  </div>
+
