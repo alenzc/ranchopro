@@ -1154,8 +1154,7 @@ function baixarModeloManejo(){
   const modelo = MODELOS_MANEJO[manejoAtual];
   const bom = '﻿';
   const linhas = [modelo.colunas.join(';'), ...modelo.exemplo.map(r=>r.join(';'))];
-  const blob = new Blob([bom + linhas.join('
-')], {type:'text/csv;charset=utf-8;'});
+  const blob = new Blob([bom + linhas.join('\n')], {type:'text/csv;charset=utf-8;'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `modelo_${manejoAtual}.csv`;
@@ -1168,9 +1167,7 @@ function previewManejo(){
   const reader = new FileReader();
   reader.onload = e => {
     const text = e.target.result.replace(/^﻿/,'');
-    const linhas = text.split(/
-?
-/).filter(l=>l.trim());
+    const linhas = text.split(/\r?\n/).filter(l=>l.trim());
     if(linhas.length < 2){alert('Arquivo sem dados.');return;}
     const sep = linhas[0].includes(';') ? ';' : ',';
     const header = linhas[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,''));
