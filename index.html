@@ -572,6 +572,7 @@ let ANIMAIS=[], PESAGENS=[], INSEMINACOES=[], PIQUETES=[];
 let CATEGORIAS=[], SITUACOES=[];
 
 async function carregarTudo(){
+  try {
   const [a,p,i,q,cfg] = await Promise.all([
     sb.from('animais').select('*').order('id'),
     sb.from('pesagens').select('*').order('data'),
@@ -583,6 +584,11 @@ async function carregarTudo(){
   PESAGENS = p.data||[];
   INSEMINACOES = i.data||[];
   PIQUETES = q.data||[];
+  // Load historico (if table exists)
+  try {
+    const hist = await sb.from('historico').select('*').order('data',{ascending:false});
+    HISTORICO = hist.data||[];
+  } catch(e) { HISTORICO = []; }
   // Load config
   const cfgData = cfg.data||[];
   const catRow = cfgData.find(r=>r.chave==='categorias');
@@ -594,7 +600,13 @@ async function carregarTudo(){
     {nome:'Vazia com cria ao pé',cor:'ba'},{nome:'Exposta com cria ao pé',cor:'ba'},
     {nome:'Prenhe com cria ao pé',cor:'bg'}
   ];
-  renderAll();
+    renderAll();
+  } catch(err) {
+    console.error('Erro ao carregar dados:', err);
+    document.getElementById('dash-metrics').innerHTML =
+      '<div style="color:#c62828;padding:20px;font-size:13px">⚠️ Erro ao carregar dados: ' + err.message +
+      '<br><br>Verifique se todas as tabelas foram criadas no Supabase e recarregue a página.</div>';
+  }
 }
 
 function calcIdadeMeses(nasc){
@@ -1085,7 +1097,7 @@ const MODELOS_MANEJO = {
     instrucoes: `<strong>Como funciona:</strong><br>
     1. Baixe o modelo e preencha o brinco e o piquete de destino de cada animal<br>
     2. O nome do piquete deve ser exatamente igual ao cadastrado no sistema<br>
-    3. Piquetes disponíveis: ${'{PIQUETES}'}`,
+    3. Os piquetes disponíveis aparecem listados ao abrir o manejo`,
     colunas: ['Brinco','Piquete destino'],
     exemplo: [['113','Eurides 01'],['123','Eucalípto']],
   },
@@ -1123,7 +1135,10 @@ function abrirManejo(tipo){
   const modelo = MODELOS_MANEJO[tipo];
   document.getElementById('manejo-titulo').textContent = modelo.titulo;
   // Replace {PIQUETES} placeholder
-  let instrucoes = modelo.instrucoes.replace('{PIQUETES}', PIQUETES.map(p=>p.nome).join(', '));
+  let instrucoes = modelo.instrucoes;
+  if(tipo === 'transferencia'){
+    instrucoes += '<br><strong>Piquetes cadastrados:</strong> ' + (PIQUETES.map(p=>p.nome).join(', ')||'Nenhum cadastrado');
+  }
   document.getElementById('manejo-instrucoes').innerHTML = instrucoes;
   document.getElementById('manejo-arquivo').value = '';
   document.getElementById('manejo-preview').style.display = 'none';
@@ -1153,7 +1168,8 @@ function previewManejo(){
   const reader = new FileReader();
   reader.onload = e => {
     const text = e.target.result.replace(/^﻿/,'');
-    const linhas = text.split(/?
+    const linhas = text.split(/
+?
 /).filter(l=>l.trim());
     if(linhas.length < 2){alert('Arquivo sem dados.');return;}
     const sep = linhas[0].includes(';') ? ';' : ',';
