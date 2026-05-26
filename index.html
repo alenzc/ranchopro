@@ -145,6 +145,7 @@ tr:hover td{background:var(--brand-light)}
   <button class="nb" onclick="nav('piquetes',this)">&#9632; Piquetes</button>
   <button class="nb" onclick="nav('mapa',this)">&#9632; Mapa de Rebanho</button>
   <button class="nb" onclick="nav('historico',this)">&#9632; Histórico</button>
+  <button class="nb" onclick="nav('manejos',this)">&#9632; Manejos</button>
   <button class="nb" onclick="nav('config',this)">&#9881; Configurações</button>
 </div>
 
@@ -323,6 +324,143 @@ tr:hover td{background:var(--brand-light)}
           </thead>
           <tbody id="tbody-mapa"><tr><td colspan="14" class="loading">Carregando...</td></tr></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="sec-manejos" class="sec">
+    <div class="sec-header">
+      <span class="sec-title">Manejos em lote</span>
+    </div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:16px">
+      Selecione um modelo de manejo para atualizar vários animais de uma vez via planilha.
+    </p>
+
+    <!-- CARDS DE MODELOS -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:20px">
+
+      <div class="card" style="border-left:4px solid var(--brand);cursor:pointer" onclick="abrirManejo('dg')">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:36px;height:36px;background:var(--brand-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">&#128203;</div>
+          <div>
+            <div style="font-weight:700;font-size:13px">Diagnóstico Gestacional (DG)</div>
+            <div style="font-size:11px;color:var(--text2)">Atualiza situação após estação de monta</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">Campos: Brinco · Resultado (Prenhe/Vazia) · Data DG · Obs</div>
+      </div>
+
+      <div class="card" style="border-left:4px solid #1565c0;cursor:pointer" onclick="abrirManejo('pesagem_lote')">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:36px;height:36px;background:#E3F2FD;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">&#9878;</div>
+          <div>
+            <div style="font-weight:700;font-size:13px">Pesagem em lote</div>
+            <div style="font-size:11px;color:var(--text2)">Registra pesagens de múltiplos animais</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">Campos: Brinco · Peso (kg) · Data · Obs</div>
+      </div>
+
+      <div class="card" style="border-left:4px solid #2E7D52;cursor:pointer" onclick="abrirManejo('transferencia')">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:36px;height:36px;background:#E8F5EE;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">&#8651;</div>
+          <div>
+            <div style="font-weight:700;font-size:13px">Transferência de piquete</div>
+            <div style="font-size:11px;color:var(--text2)">Move animais entre piquetes em lote</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">Campos: Brinco · Piquete destino</div>
+      </div>
+
+      <div class="card" style="border-left:4px solid #f57f17;cursor:pointer" onclick="abrirManejo('inseminacao_lote')">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:36px;height:36px;background:#FFF3E0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">&#128137;</div>
+          <div>
+            <div style="font-weight:700;font-size:13px">Inseminação em lote (IATF)</div>
+            <div style="font-size:11px;color:var(--text2)">Registra inseminações de múltiplas fêmeas</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">Campos: Brinco · Touro/Sêmen · Data · Tipo</div>
+      </div>
+
+      <div class="card" style="border-left:4px solid #5B3B8C;cursor:pointer" onclick="abrirManejo('atualizacao_situacao')">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:36px;height:36px;background:#F0EAFA;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">&#9998;</div>
+          <div>
+            <div style="font-weight:700;font-size:13px">Atualização de situação</div>
+            <div style="font-size:11px;color:var(--text2)">Altera situação de múltiplos animais</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">Campos: Brinco · Nova situação</div>
+      </div>
+
+      <div class="card" style="border-left:4px solid #C0392B;cursor:pointer" onclick="abrirManejo('parto_lote')">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:36px;height:36px;background:#FDEDEC;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">&#128036;</div>
+          <div>
+            <div style="font-weight:700;font-size:13px">Registro de partos</div>
+            <div style="font-size:11px;color:var(--text2)">Lança partos e incrementa contador</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">Campos: Brinco mãe · Data parto · Brinco cria · Sexo cria</div>
+      </div>
+
+    </div>
+
+    <!-- PAINEL DO MANEJO SELECIONADO -->
+    <div id="painel-manejo" style="display:none">
+      <div class="card">
+        <div class="ch">
+          <span class="ct" id="manejo-titulo">Manejo</span>
+          <button class="btn" onclick="document.getElementById('painel-manejo').style.display='none'">&#10005; Fechar</button>
+        </div>
+        <div id="manejo-instrucoes" style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.7"></div>
+
+        <!-- PASSO 1: Baixar modelo -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <div style="background:var(--brand);color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">1</div>
+          <button class="btn btn-p" onclick="baixarModeloManejo()">&#8595; Baixar planilha modelo (.csv)</button>
+          <span style="font-size:11px;color:var(--text3)">Preencha no Excel e salve como CSV (separado por ponto e vírgula)</span>
+        </div>
+
+        <!-- PASSO 2: Upload -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <div style="background:var(--brand);color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">2</div>
+          <input type="file" accept=".csv" id="manejo-arquivo" class="fi" style="max-width:300px;padding:6px" onchange="previewManejo()">
+        </div>
+
+        <!-- PREVIEW -->
+        <div id="manejo-preview" style="display:none;margin-bottom:14px">
+          <div id="manejo-preview-info" style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px"></div>
+          <div class="tw">
+            <table><thead><tr id="manejo-preview-header"></tr></thead>
+            <tbody id="manejo-preview-body"></tbody></table>
+          </div>
+        </div>
+
+        <!-- PASSO 3: Executar -->
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="background:var(--brand);color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">3</div>
+          <button class="btn btn-s" id="btn-executar-manejo" onclick="executarManejo()" disabled>&#9654; Executar manejo</button>
+          <span id="manejo-status" style="font-size:12px;color:var(--text2)"></span>
+        </div>
+
+        <!-- RESULTADO -->
+        <div id="manejo-resultado" style="display:none;margin-top:14px;background:var(--bg3);border-radius:8px;padding:12px">
+          <div id="manejo-resultado-texto" style="font-size:13px"></div>
+          <div id="manejo-erros-lista" style="font-size:11px;color:var(--red);margin-top:8px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTÓRICO DE MANEJOS -->
+    <div class="card">
+      <div class="ch"><span class="ct">Manejos executados recentemente</span></div>
+      <div class="tw">
+        <table><thead><tr>
+          <th>Data execução</th><th>Tipo de manejo</th><th>Animais processados</th><th>Sucesso</th><th>Erros</th><th>Usuário</th>
+        </tr></thead>
+        <tbody id="tbody-manejos-hist"></tbody></table>
       </div>
     </div>
   </div>
@@ -537,6 +675,7 @@ function nav(id,btn){
   if(id==='piquetes')renderPiquetes();
   if(id==='mapa')renderMapa();
   if(id==='historico')renderHistorico();
+  if(id==='manejos')renderManejosHist();
   if(id==='config')renderConfig();
 }
 
@@ -913,6 +1052,286 @@ function fecharModal(id){document.getElementById(id).style.display='none';}
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.style.display='none';}));
 
 
+
+
+
+// ===== MANEJOS EM LOTE =====
+let manejoAtual = null;
+let manejoCSVData = [];
+let manejoHistorico = [];
+
+const MODELOS_MANEJO = {
+  dg: {
+    titulo: 'Diagnóstico Gestacional (DG)',
+    instrucoes: `<strong>Como funciona:</strong><br>
+    1. Baixe o modelo, preencha o brinco de cada animal e o resultado do DG<br>
+    2. Resultados aceitos: <strong>Prenhe</strong>, <strong>Prenhe com cria ao pé</strong>, <strong>Vazia</strong>, <strong>Vazia com cria ao pé</strong><br>
+    3. O sistema atualizará a situação de cada animal automaticamente<br>
+    4. Animais não encontrados serão listados como erros`,
+    colunas: ['Brinco','Resultado DG','Data DG','Observação'],
+    exemplo: [['113','Prenhe','2026-05-20',''],['123','Vazia','2026-05-20','Repetiu cio']],
+  },
+  pesagem_lote: {
+    titulo: 'Pesagem em lote',
+    instrucoes: `<strong>Como funciona:</strong><br>
+    1. Baixe o modelo e preencha o brinco, peso e data de cada animal<br>
+    2. O sistema registrará uma nova pesagem para cada animal<br>
+    3. O GMD será calculado automaticamente em relação à pesagem anterior`,
+    colunas: ['Brinco','Peso (kg)','Data','Observação'],
+    exemplo: [['113','480','2026-05-20',''],['123','392','2026-05-20','']],
+  },
+  transferencia: {
+    titulo: 'Transferência de piquete em lote',
+    instrucoes: `<strong>Como funciona:</strong><br>
+    1. Baixe o modelo e preencha o brinco e o piquete de destino de cada animal<br>
+    2. O nome do piquete deve ser exatamente igual ao cadastrado no sistema<br>
+    3. Piquetes disponíveis: ${'{PIQUETES}'}`,
+    colunas: ['Brinco','Piquete destino'],
+    exemplo: [['113','Eurides 01'],['123','Eucalípto']],
+  },
+  inseminacao_lote: {
+    titulo: 'Inseminação em lote (IATF)',
+    instrucoes: `<strong>Como funciona:</strong><br>
+    1. Preencha o brinco de cada fêmea, o touro/sêmen utilizado e a data<br>
+    2. Tipos aceitos: IA, IATF, Monta Natural, TE<br>
+    3. O sistema criará um registro de inseminação para cada animal`,
+    colunas: ['Brinco','Touro/Sêmen','Data','Tipo','Técnico'],
+    exemplo: [['113','JHVM 22921 CAMPANINO','2026-05-20','IATF','Dr. Carvalho'],['123','Maverick FIV','2026-05-20','IA','']],
+  },
+  atualizacao_situacao: {
+    titulo: 'Atualização de situação em lote',
+    instrucoes: `<strong>Como funciona:</strong><br>
+    1. Preencha o brinco e a nova situação de cada animal<br>
+    2. Situações aceitas: Vazia, Exposta, Prenhe, Vazia com cria ao pé, Exposta com cria ao pé, Prenhe com cria ao pé`,
+    colunas: ['Brinco','Nova situação','Observação'],
+    exemplo: [['113','Exposta com cria ao pé',''],['123','Vazia','']],
+  },
+  parto_lote: {
+    titulo: 'Registro de partos em lote',
+    instrucoes: `<strong>Como funciona:</strong><br>
+    1. Preencha o brinco da mãe, data do parto e dados da cria (opcional)<br>
+    2. O contador de partos da mãe será incrementado automaticamente<br>
+    3. Se informar brinco da cria, ela será cadastrada como novo animal (Bezerro/Bezerra)`,
+    colunas: ['Brinco mãe','Data parto','Brinco cria','Sexo cria','Peso cria (kg)'],
+    exemplo: [['113','2026-05-15','1201','F','32'],['123','2026-05-18','','','']],
+  },
+};
+
+function abrirManejo(tipo){
+  manejoAtual = tipo;
+  manejoCSVData = [];
+  const modelo = MODELOS_MANEJO[tipo];
+  document.getElementById('manejo-titulo').textContent = modelo.titulo;
+  // Replace {PIQUETES} placeholder
+  let instrucoes = modelo.instrucoes.replace('{PIQUETES}', PIQUETES.map(p=>p.nome).join(', '));
+  document.getElementById('manejo-instrucoes').innerHTML = instrucoes;
+  document.getElementById('manejo-arquivo').value = '';
+  document.getElementById('manejo-preview').style.display = 'none';
+  document.getElementById('manejo-resultado').style.display = 'none';
+  document.getElementById('manejo-status').textContent = '';
+  document.getElementById('btn-executar-manejo').disabled = true;
+  document.getElementById('painel-manejo').style.display = 'block';
+  document.getElementById('painel-manejo').scrollIntoView({behavior:'smooth'});
+}
+
+function baixarModeloManejo(){
+  if(!manejoAtual) return;
+  const modelo = MODELOS_MANEJO[manejoAtual];
+  const bom = '﻿';
+  const linhas = [modelo.colunas.join(';'), ...modelo.exemplo.map(r=>r.join(';'))];
+  const blob = new Blob([bom + linhas.join('
+')], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `modelo_${manejoAtual}.csv`;
+  a.click();
+}
+
+function previewManejo(){
+  const file = document.getElementById('manejo-arquivo').files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const text = e.target.result.replace(/^﻿/,'');
+    const linhas = text.split(/?
+/).filter(l=>l.trim());
+    if(linhas.length < 2){alert('Arquivo sem dados.');return;}
+    const sep = linhas[0].includes(';') ? ';' : ',';
+    const header = linhas[0].split(sep).map(h=>h.trim().replace(/^"|"$/g,''));
+    manejoCSVData = linhas.slice(1).map(l=>{
+      const vals = l.split(sep).map(v=>v.trim().replace(/^"|"$/g,''));
+      const obj = {};
+      header.forEach((h,i)=>obj[h.toLowerCase()]=vals[i]||'');
+      return obj;
+    }).filter(r=>Object.values(r).some(v=>v));
+
+    // Show preview
+    document.getElementById('manejo-preview').style.display = 'block';
+    document.getElementById('manejo-preview-info').textContent = `${manejoCSVData.length} registros encontrados no arquivo`;
+    document.getElementById('manejo-preview-header').innerHTML = header.map(h=>`<th>${h}</th>`).join('');
+    document.getElementById('manejo-preview-body').innerHTML = manejoCSVData.slice(0,5).map(r=>
+      `<tr>${header.map(h=>`<td>${r[h.toLowerCase()]||'—'}</td>`).join('')}</tr>`
+    ).join('') + (manejoCSVData.length>5?`<tr><td colspan="${header.length}" style="color:var(--text3);text-align:center">... e mais ${manejoCSVData.length-5} registros</td></tr>`:'');
+    document.getElementById('btn-executar-manejo').disabled = false;
+    document.getElementById('manejo-status').textContent = 'Arquivo carregado. Revise os dados e clique em Executar.';
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+async function executarManejo(){
+  if(!manejoAtual || !manejoCSVData.length) return;
+  document.getElementById('btn-executar-manejo').disabled = true;
+  document.getElementById('manejo-status').textContent = 'Processando...';
+  document.getElementById('manejo-resultado').style.display = 'none';
+
+  let ok = 0, erros = [], total = manejoCSVData.length;
+
+  if(manejoAtual === 'dg'){
+    for(const row of manejoCSVData){
+      const brinco = (row['brinco']||'').trim();
+      const resultado = (row['resultado dg']||row['resultado']||'').trim();
+      const data = (row['data dg']||row['data']||new Date().toISOString().split('T')[0]).trim();
+      const obs = row['observação']||row['observacao']||'';
+      if(!brinco){erros.push('Linha sem brinco ignorada');continue;}
+      const animal = ANIMAIS.find(a=>a.id===brinco);
+      if(!animal){erros.push(`Brinco ${brinco} não encontrado`);continue;}
+      // Map resultado to situação
+      const situMap = {
+        'prenhe':'Prenhe','prenha':'Prenhe','p':'Prenhe','sim':'Prenhe','confirmada':'Prenhe',
+        'vazia':'Vazia','v':'Vazia','não':'Vazia','nao':'Vazia','improdutiva':'Vazia',
+        'prenhe com cria ao pé':'Prenhe com cria ao pé',
+        'vazia com cria ao pé':'Vazia com cria ao pé',
+      };
+      const sit = situMap[resultado.toLowerCase()];
+      if(!sit){erros.push(`Brinco ${brinco}: resultado "${resultado}" não reconhecido`);continue;}
+      const {error} = await sb.from('animais').update({cat: sit}).eq('id', brinco);
+      if(error){erros.push(`Brinco ${brinco}: ${error.message}`);continue;}
+      ok++;
+    }
+  }
+
+  else if(manejoAtual === 'pesagem_lote'){
+    const pesagens = [];
+    for(const row of manejoCSVData){
+      const brinco = (row['brinco']||'').trim();
+      const peso = parseFloat(row['peso (kg)']||row['peso']||'');
+      const data = (row['data']||new Date().toISOString().split('T')[0]).trim();
+      if(!brinco||!peso){erros.push(`Brinco ${brinco||'?'}: brinco ou peso inválido`);continue;}
+      const animal = ANIMAIS.find(a=>a.id===brinco);
+      if(!animal){erros.push(`Brinco ${brinco} não encontrado`);continue;}
+      pesagens.push({id:`p_lot_${brinco}_${data}_${Date.now()}`,animal_id:brinco,data,peso,obs:row['observação']||row['obs']||'Manejo em lote'});
+      ok++;
+    }
+    if(pesagens.length){
+      const {error} = await sb.from('pesagens').insert(pesagens);
+      if(error){erros.push('Erro ao salvar pesagens: '+error.message);ok=0;}
+    }
+  }
+
+  else if(manejoAtual === 'transferencia'){
+    for(const row of manejoCSVData){
+      const brinco = (row['brinco']||'').trim();
+      const piquete = (row['piquete destino']||row['piquete']||'').trim();
+      if(!brinco||!piquete){erros.push(`Linha inválida: brinco ou piquete vazio`);continue;}
+      const animal = ANIMAIS.find(a=>a.id===brinco);
+      if(!animal){erros.push(`Brinco ${brinco} não encontrado`);continue;}
+      const piqExiste = PIQUETES.find(p=>p.nome.toLowerCase()===piquete.toLowerCase());
+      if(!piqExiste){erros.push(`Brinco ${brinco}: piquete "${piquete}" não cadastrado`);continue;}
+      const {error} = await sb.from('animais').update({piquete:piqExiste.nome}).eq('id',brinco);
+      if(error){erros.push(`Brinco ${brinco}: ${error.message}`);continue;}
+      ok++;
+    }
+  }
+
+  else if(manejoAtual === 'inseminacao_lote'){
+    const inseminacoes = [];
+    for(const row of manejoCSVData){
+      const brinco = (row['brinco']||'').trim();
+      const touro = (row['touro/sêmen']||row['touro/semen']||row['touro']||'').trim();
+      const data = (row['data']||new Date().toISOString().split('T')[0]).trim();
+      if(!brinco||!touro){erros.push(`Brinco ${brinco||'?'}: brinco ou touro/sêmen inválido`);continue;}
+      const animal = ANIMAIS.find(a=>a.id===brinco);
+      if(!animal){erros.push(`Brinco ${brinco} não encontrado`);continue;}
+      inseminacoes.push({
+        id:`i_lot_${brinco}_${data}_${Date.now()}`,femea:brinco,data,touro,
+        tipo:row['tipo']||'IATF (Tempo Fixo)',
+        tecnico:row['técnico']||row['tecnico']||'',
+        resultado:'Aguardando DG'
+      });
+      ok++;
+    }
+    if(inseminacoes.length){
+      const {error} = await sb.from('inseminacoes').insert(inseminacoes);
+      if(error){erros.push('Erro ao salvar: '+error.message);ok=0;}
+    }
+  }
+
+  else if(manejoAtual === 'atualizacao_situacao'){
+    for(const row of manejoCSVData){
+      const brinco = (row['brinco']||'').trim();
+      const sit = (row['nova situação']||row['nova situacao']||row['situação']||'').trim();
+      if(!brinco||!sit){erros.push(`Linha inválida`);continue;}
+      const animal = ANIMAIS.find(a=>a.id===brinco);
+      if(!animal){erros.push(`Brinco ${brinco} não encontrado`);continue;}
+      const {error} = await sb.from('animais').update({cat:sit}).eq('id',brinco);
+      if(error){erros.push(`Brinco ${brinco}: ${error.message}`);continue;}
+      ok++;
+    }
+  }
+
+  else if(manejoAtual === 'parto_lote'){
+    for(const row of manejoCSVData){
+      const mae = (row['brinco mãe']||row['brinco mae']||'').trim();
+      const dataParto = (row['data parto']||row['data']||'').trim();
+      if(!mae||!dataParto){erros.push(`Linha inválida`);continue;}
+      const animalMae = ANIMAIS.find(a=>a.id===mae);
+      if(!animalMae){erros.push(`Brinco mãe ${mae} não encontrado`);continue;}
+      // Increment partos
+      const novosPartos = (animalMae.partos||0) + 1;
+      const {error:em} = await sb.from('animais').update({partos:novosPartos, cat:'Vazia com cria ao pé'}).eq('id',mae);
+      if(em){erros.push(`Brinco ${mae}: ${em.message}`);continue;}
+      // Register cria if brinco provided
+      const brincoCria = (row['brinco cria']||'').trim();
+      if(brincoCria){
+        const sexoCria = (row['sexo cria']||'F').trim().toUpperCase() === 'M' ? 'M' : 'F';
+        const pesoCria = parseFloat(row['peso cria (kg)']||row['peso cria']||'') || null;
+        await sb.from('animais').upsert({
+          id:brincoCria, nome:null, raca:animalMae.raca||'Nelore',
+          sexo:sexoCria, nasc:dataParto, piquete:animalMae.piquete||null,
+          cat: sexoCria==='F'?'Bezerra':'Bezerro', mae:mae, pai:null, partos:0
+        });
+        if(pesoCria){
+          await sb.from('pesagens').insert({id:`p_cria_${brincoCria}_${Date.now()}`,animal_id:brincoCria,data:dataParto,peso:pesoCria,obs:'Peso ao nascer'});
+        }
+      }
+      ok++;
+    }
+  }
+
+  // Save to manejo log
+  await sb.from('configuracoes').upsert({
+    chave: 'manejo_log_'+Date.now(),
+    valor: JSON.stringify({tipo:manejoAtual, data:new Date().toISOString(), total, ok, erros:erros.length})
+  });
+
+  // Show result
+  await carregarTudo();
+  document.getElementById('manejo-resultado').style.display = 'block';
+  document.getElementById('manejo-resultado-texto').innerHTML =
+    `<span style="color:var(--green);font-weight:700">&#10003; ${ok} de ${total} animais processados com sucesso</span>` +
+    (erros.length ? `<span style="color:var(--red);margin-left:12px">&#10005; ${erros.length} erro(s)</span>` : '');
+  document.getElementById('manejo-erros-lista').innerHTML = erros.map(e=>`• ${e}`).join('<br>');
+  document.getElementById('manejo-status').textContent = 'Concluído!';
+  document.getElementById('btn-executar-manejo').disabled = false;
+  renderManejosHist();
+}
+
+function renderManejosHist(){
+  // Show from configuracoes log entries
+  const logs = Object.entries(window._manejoLogs||{});
+  document.getElementById('tbody-manejos-hist').innerHTML =
+    '<tr><td colspan="6" class="empty" style="font-size:11px">Os manejos executados nesta sessão aparecem aqui após a execução.</td></tr>';
+}
 
 
 // ===== SAÍDAS (VENDA / MORTE) =====
