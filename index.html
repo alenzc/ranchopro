@@ -394,6 +394,17 @@ tr:hover td{background:var(--brand-light)}
         <div style="font-size:11px;color:var(--text3)">Campos: Brinco · Nova situação</div>
       </div>
 
+      <div class="card" style="border-left:4px solid #1565c0;cursor:pointer" onclick="abrirManejo('venda_lote')">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:36px;height:36px;background:#E3F2FD;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">&#36;</div>
+          <div>
+            <div style="font-weight:700;font-size:13px">Venda em lote</div>
+            <div style="font-size:11px;color:var(--text2)">Remove animais vendidos do plantel via planilha</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">Campos: Brinco · Data · Destino · Peso · Valor · Obs</div>
+      </div>
+
       <div class="card" style="border-left:4px solid #C0392B;cursor:pointer" onclick="abrirManejo('parto_lote')">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <div style="width:36px;height:36px;background:#FDEDEC;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">&#128036;</div>
@@ -815,7 +826,14 @@ async function salvarAnimal(){
     mae:document.getElementById('f-mae').value.trim()||null,
     partos:parseInt(document.getElementById('f-partos').value)||0,
   });
-  if(error){alert('Erro: '+error.message);return;}
+  if(error){
+    if(error.code==='23505' || error.message.includes('duplicate') || error.message.includes('already exists')){
+      alert(`❌ Erro: O brinco "${id}" já está cadastrado no sistema.\n\nSe quiser atualizar os dados deste animal, use o botão ✏️ Editar na lista de animais.`);
+    } else {
+      alert('❌ Erro ao cadastrar: ' + error.message);
+    }
+    return;
+  }
   const peso=parseFloat(document.getElementById('f-peso').value);
   if(peso){
     await sb.from('pesagens').insert({id:'p'+Date.now(),animal_id:id,data:new Date().toISOString().split('T')[0],peso,obs:'Peso inicial'});
@@ -885,7 +903,7 @@ async function salvarPeso(){
   const peso=parseFloat(document.getElementById('fp-peso').value);
   if(!aid||!data||!peso){alert('Preencha animal, data e peso.');return;}
   const {error}=await sb.from('pesagens').insert({id:'p'+Date.now(),animal_id:aid,data,peso,obs:document.getElementById('fp-obs').value});
-  if(error){alert('Erro: '+error.message);return;}
+  if(error){alert('❌ Erro ao registrar pesagem: '+error.message);return;}
   fecharModal('modal-peso');
   document.getElementById('fp-peso').value='';document.getElementById('fp-obs').value='';
   await carregarTudo();renderGraficoPeso();
@@ -913,7 +931,7 @@ async function salvarIns(){
   const touro=document.getElementById('fi-touro').value.trim();
   if(!femea||!data||!touro){alert('Preencha fêmea, data e touro/sêmen.');return;}
   const {error}=await sb.from('inseminacoes').insert({id:'i'+Date.now(),femea,data,touro,tecnico:document.getElementById('fi-tecnico').value.trim(),tipo:document.getElementById('fi-tipo').value,resultado:document.getElementById('fi-resultado').value});
-  if(error){alert('Erro: '+error.message);return;}
+  if(error){alert('❌ Erro ao registrar inseminação: '+error.message);return;}
   fecharModal('modal-ins');
   document.getElementById('fi-touro').value='';document.getElementById('fi-tecnico').value='';
   await carregarTudo();renderIns();
@@ -1048,7 +1066,14 @@ async function salvarPiquete(){
   const nome=document.getElementById('fpq-nome').value.trim();
   if(!nome){alert('Nome é obrigatório.');return;}
   const {error}=await sb.from('piquetes').insert({nome,tipo:document.getElementById('fpq-tipo').value,cap:parseInt(document.getElementById('fpq-cap').value)||0,ha:parseFloat(document.getElementById('fpq-ha').value)||0});
-  if(error){alert('Erro: '+error.message);return;}
+  if(error){
+    if(error.code==='23505' || error.message.includes('duplicate')){
+      alert(`❌ Já existe um piquete com o nome "${nome}". Escolha um nome diferente.`);
+    } else {
+      alert('❌ Erro ao salvar piquete: ' + error.message);
+    }
+    return;
+  }
   fecharModal('modal-piquete');
   resetFormPiquete();
   await carregarTudo();
@@ -1117,6 +1142,16 @@ const MODELOS_MANEJO = {
     2. Situações aceitas: Vazia, Exposta, Prenhe, Vazia com cria ao pé, Exposta com cria ao pé, Prenhe com cria ao pé`,
     colunas: ['Brinco','Nova situação','Observação'],
     exemplo: [['113','Exposta com cria ao pé',''],['123','Vazia','']],
+  },
+  venda_lote: {
+    titulo: 'Venda em lote',
+    instrucoes: `<strong>Como funciona:</strong><br>
+    1. Baixe o modelo e preencha o brinco de cada animal vendido<br>
+    2. Os animais serão removidos do plantel ativo e registrados no histórico<br>
+    3. Campos obrigatórios: <strong>Brinco</strong> e <strong>Data</strong><br>
+    4. Campos opcionais: Destino/Comprador, Peso (kg), Valor (R$), Observação`,
+    colunas: ['Brinco','Data','Destino/Comprador','Peso (kg)','Valor (R$)','Observação'],
+    exemplo: [['113','2026-06-01','Guilherme','480','2985',''],['123','2026-06-01','Guilherme','392','2500','']],
   },
   parto_lote: {
     titulo: 'Registro de partos em lote',
@@ -1205,9 +1240,9 @@ async function executarManejo(){
       const resultado = (row['resultado dg']||row['resultado']||'').trim();
       const data = (row['data dg']||row['data']||new Date().toISOString().split('T')[0]).trim();
       const obs = row['observação']||row['observacao']||'';
-      if(!brinco){erros.push('Linha sem brinco ignorada');continue;}
+      if(!brinco){erros.push({linha: '?', erro: 'Linha sem brinco ignorada'});continue;}
       const animal = ANIMAIS.find(a=>a.id===brinco);
-      if(!animal){erros.push(`Brinco ${brinco} não encontrado`);continue;}
+      if(!animal){erros.push({linha: brinco, erro: 'Animal não encontrado no plantel'});continue;}
       // Map resultado to situação
       const situMap = {
         'prenhe':'Prenhe','prenha':'Prenhe','p':'Prenhe','sim':'Prenhe','confirmada':'Prenhe',
@@ -1216,9 +1251,9 @@ async function executarManejo(){
         'vazia com cria ao pé':'Vazia com cria ao pé',
       };
       const sit = situMap[resultado.toLowerCase()];
-      if(!sit){erros.push(`Brinco ${brinco}: resultado "${resultado}" não reconhecido`);continue;}
+      if(!sit){erros.push({linha: brinco, erro: `Resultado DG "${resultado}" não reconhecido. Use: Prenhe, Vazia, Prenhe com cria ao pé ou Vazia com cria ao pé`});continue;}
       const {error} = await sb.from('animais').update({cat: sit}).eq('id', brinco);
-      if(error){erros.push(`Brinco ${brinco}: ${error.message}`);continue;}
+      if(error){erros.push({linha: brinco, erro: error.message});continue;}
       ok++;
     }
   }
@@ -1229,15 +1264,15 @@ async function executarManejo(){
       const brinco = (row['brinco']||'').trim();
       const peso = parseFloat(row['peso (kg)']||row['peso']||'');
       const data = (row['data']||new Date().toISOString().split('T')[0]).trim();
-      if(!brinco||!peso){erros.push(`Brinco ${brinco||'?'}: brinco ou peso inválido`);continue;}
+      if(!brinco||!peso){erros.push({linha: brinco||'?', erro: 'Brinco ou peso inválido — verifique se a coluna "Peso (kg)" está preenchida'});continue;}
       const animal = ANIMAIS.find(a=>a.id===brinco);
-      if(!animal){erros.push(`Brinco ${brinco} não encontrado`);continue;}
+      if(!animal){erros.push({linha: brinco, erro: 'Animal não encontrado no plantel'});continue;}
       pesagens.push({id:`p_lot_${brinco}_${data}_${Date.now()}`,animal_id:brinco,data,peso,obs:row['observação']||row['obs']||'Manejo em lote'});
       ok++;
     }
     if(pesagens.length){
       const {error} = await sb.from('pesagens').insert(pesagens);
-      if(error){erros.push('Erro ao salvar pesagens: '+error.message);ok=0;}
+      if(error){erros.push({linha: 'Lote', erro: 'Erro ao salvar pesagens: '+error.message});ok=0;}
     }
   }
 
@@ -1245,13 +1280,13 @@ async function executarManejo(){
     for(const row of manejoCSVData){
       const brinco = (row['brinco']||'').trim();
       const piquete = (row['piquete destino']||row['piquete']||'').trim();
-      if(!brinco||!piquete){erros.push(`Linha inválida: brinco ou piquete vazio`);continue;}
+      if(!brinco||!piquete){erros.push({linha: '?', erro: 'Linha com brinco ou piquete vazio'});continue;}
       const animal = ANIMAIS.find(a=>a.id===brinco);
-      if(!animal){erros.push(`Brinco ${brinco} não encontrado`);continue;}
+      if(!animal){erros.push({linha: brinco, erro: 'Animal não encontrado no plantel'});continue;}
       const piqExiste = PIQUETES.find(p=>p.nome.toLowerCase()===piquete.toLowerCase());
-      if(!piqExiste){erros.push(`Brinco ${brinco}: piquete "${piquete}" não cadastrado`);continue;}
+      if(!piqExiste){erros.push({linha: brinco, erro: `Piquete "${piquete}" não cadastrado. Piquetes disponíveis: ${PIQUETES.map(p=>p.nome).join(', ')}`});continue;}
       const {error} = await sb.from('animais').update({piquete:piqExiste.nome}).eq('id',brinco);
-      if(error){erros.push(`Brinco ${brinco}: ${error.message}`);continue;}
+      if(error){erros.push({linha: brinco, erro: error.message});continue;}
       ok++;
     }
   }
@@ -1262,9 +1297,9 @@ async function executarManejo(){
       const brinco = (row['brinco']||'').trim();
       const touro = (row['touro/sêmen']||row['touro/semen']||row['touro']||'').trim();
       const data = (row['data']||new Date().toISOString().split('T')[0]).trim();
-      if(!brinco||!touro){erros.push(`Brinco ${brinco||'?'}: brinco ou touro/sêmen inválido`);continue;}
+      if(!brinco||!touro){erros.push({linha: brinco||'?', erro: 'Brinco ou touro/sêmen não informado'});continue;}
       const animal = ANIMAIS.find(a=>a.id===brinco);
-      if(!animal){erros.push(`Brinco ${brinco} não encontrado`);continue;}
+      if(!animal){erros.push({linha: brinco, erro: 'Animal não encontrado no plantel'});continue;}
       inseminacoes.push({
         id:`i_lot_${brinco}_${data}_${Date.now()}`,femea:brinco,data,touro,
         tipo:row['tipo']||'IATF (Tempo Fixo)',
@@ -1275,7 +1310,7 @@ async function executarManejo(){
     }
     if(inseminacoes.length){
       const {error} = await sb.from('inseminacoes').insert(inseminacoes);
-      if(error){erros.push('Erro ao salvar: '+error.message);ok=0;}
+      if(error){erros.push({linha: 'Lote', erro: 'Erro ao salvar inseminações: '+error.message});ok=0;}
     }
   }
 
@@ -1283,11 +1318,38 @@ async function executarManejo(){
     for(const row of manejoCSVData){
       const brinco = (row['brinco']||'').trim();
       const sit = (row['nova situação']||row['nova situacao']||row['situação']||'').trim();
-      if(!brinco||!sit){erros.push(`Linha inválida`);continue;}
+      if(!brinco||!sit){erros.push({linha: '?', erro: 'Linha com brinco ou situação vazia'});continue;}
       const animal = ANIMAIS.find(a=>a.id===brinco);
-      if(!animal){erros.push(`Brinco ${brinco} não encontrado`);continue;}
+      if(!animal){erros.push({linha: brinco, erro: 'Animal não encontrado no plantel'});continue;}
       const {error} = await sb.from('animais').update({cat:sit}).eq('id',brinco);
-      if(error){erros.push(`Brinco ${brinco}: ${error.message}`);continue;}
+      if(error){erros.push({linha: brinco, erro: error.message});continue;}
+      ok++;
+    }
+  }
+
+  else if(manejoAtual === 'venda_lote'){
+    for(const row of manejoCSVData){
+      const brinco = (row['brinco']||'').trim();
+      const data = (row['data']||'').trim();
+      if(!brinco || !data){ erros.push({linha: brinco||'?', erro: 'Brinco ou data não informado'}); continue; }
+      const animal = ANIMAIS.find(a=>a.id===brinco);
+      if(!animal){ erros.push({linha: brinco, erro: `Brinco ${brinco} não encontrado no plantel`}); continue; }
+      const peso = parseFloat(row['peso (kg)']||row['peso']||'') || null;
+      const valor = parseFloat(row['valor (r$)']||row['valor']||'') || null;
+      const destino = row['destino/comprador']||row['destino']||null;
+      const obs = row['observação']||row['obs']||null;
+      const registro = {
+        id: `venda_${brinco}_${data}_${Date.now()}`,
+        animal_id: brinco, nome: animal.nome||null, raca: animal.raca||null,
+        sexo: animal.sexo||null, nasc: animal.nasc||null, piquete: animal.piquete||null,
+        tipo: 'Venda', data, destino, peso, valor, obs,
+      };
+      const {error: he} = await sb.from('historico').insert(registro);
+      if(he){ erros.push({linha: brinco, erro: he.message}); continue; }
+      await sb.from('pesagens').delete().eq('animal_id', brinco);
+      await sb.from('inseminacoes').delete().eq('femea', brinco);
+      const {error: ae} = await sb.from('animais').delete().eq('id', brinco);
+      if(ae){ erros.push({linha: brinco, erro: ae.message}); continue; }
       ok++;
     }
   }
@@ -1296,9 +1358,9 @@ async function executarManejo(){
     for(const row of manejoCSVData){
       const mae = (row['brinco mãe']||row['brinco mae']||'').trim();
       const dataParto = (row['data parto']||row['data']||'').trim();
-      if(!mae||!dataParto){erros.push(`Linha inválida`);continue;}
+      if(!mae||!dataParto){erros.push({linha: '?', erro: 'Linha com brinco ou situação vazia'});continue;}
       const animalMae = ANIMAIS.find(a=>a.id===mae);
-      if(!animalMae){erros.push(`Brinco mãe ${mae} não encontrado`);continue;}
+      if(!animalMae){erros.push({linha: mae, erro: 'Animal mãe não encontrado no plantel'});continue;}
       // Increment partos
       const novosPartos = (animalMae.partos||0) + 1;
       const {error:em} = await sb.from('animais').update({partos:novosPartos, cat:'Vazia com cria ao pé'}).eq('id',mae);
@@ -1331,9 +1393,32 @@ async function executarManejo(){
   await carregarTudo();
   document.getElementById('manejo-resultado').style.display = 'block';
   document.getElementById('manejo-resultado-texto').innerHTML =
-    `<span style="color:var(--green);font-weight:700">&#10003; ${ok} de ${total} animais processados com sucesso</span>` +
+    `<span style="color:var(--green);font-weight:700">&#10003; ${ok} de ${total} registros processados com sucesso</span>` +
     (erros.length ? `<span style="color:var(--red);margin-left:12px">&#10005; ${erros.length} erro(s)</span>` : '');
-  document.getElementById('manejo-erros-lista').innerHTML = erros.map(e=>`• ${e}`).join('<br>');
+  // Detailed error table
+  if(erros.length){
+    const erroRows = erros.map(e => {
+      const linha = (typeof e === 'object') ? e.linha : '?';
+      const msg = (typeof e === 'object') ? e.erro : e;
+      return `<tr>
+        <td style="padding:4px 8px;border-bottom:1px solid var(--bg3);font-weight:600;white-space:nowrap">${linha}</td>
+        <td style="padding:4px 8px;border-bottom:1px solid var(--bg3);color:var(--red)">${msg}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('manejo-erros-lista').innerHTML = `
+      <div style="margin-top:10px;font-size:12px;font-weight:700;color:var(--red);margin-bottom:6px">Detalhes dos erros:</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;font-size:11px;border-collapse:collapse">
+          <thead><tr>
+            <th style="padding:4px 8px;text-align:left;background:var(--bg3);border-bottom:2px solid var(--border)">Brinco</th>
+            <th style="padding:4px 8px;text-align:left;background:var(--bg3);border-bottom:2px solid var(--border)">Descrição do erro</th>
+          </tr></thead>
+          <tbody>${erroRows}</tbody>
+        </table>
+      </div>`;
+  } else {
+    document.getElementById('manejo-erros-lista').innerHTML = '';
+  }
   document.getElementById('manejo-status').textContent = 'Concluído!';
   document.getElementById('btn-executar-manejo').disabled = false;
   renderManejosHist();
@@ -1836,7 +1921,13 @@ function processarImportacao() {
           cat: d['categoria'] || d['situação da vaca'] || d['situacao'] || 'Vazia',
           pai: d['pai'] || null, mae: d['mãe'] || d['mae'] || null,
         });
-        error ? erros++ : ok++;
+        if(error){
+          erros++;
+          document.getElementById('imp-preview').innerHTML += `<div style="color:var(--red);font-size:11px;margin-top:4px">❌ Brinco ${brinco}: ${error.message}</div>`;
+        } else {
+          ok++;
+          if(jaExiste) document.getElementById('imp-preview').innerHTML += `<div style="color:var(--amber);font-size:11px">⚠️ Brinco ${brinco}: dados atualizados (já existia)</div>`;
+        }
       }
     } else if (tipoImportacao === 'pesagens') {
       for (const d of dados) {
@@ -1865,7 +1956,11 @@ function processarImportacao() {
         error ? erros++ : ok++;
       }
     }
-    document.getElementById('imp-preview').innerHTML = `<span style="color:#1D9E75;font-weight:600">✓ ${ok} importados com sucesso</span>${erros?` · <span style="color:#c62828">${erros} com erro</span>`:''}`;
+    document.getElementById('imp-preview').innerHTML +=
+      `<div style="margin-top:8px;padding:8px 12px;background:var(--bg3);border-radius:8px;font-size:12px">
+        <span style="color:var(--green);font-weight:700">✓ ${ok} registros importados com sucesso</span>
+        ${erros?`<span style="color:var(--red);margin-left:12px;font-weight:700">❌ ${erros} erro(s) — veja detalhes acima</span>`:''}
+      </div>`;
     await carregarTudo();
     setTimeout(() => fecharModal('modal-importar'), 2000);
   };
