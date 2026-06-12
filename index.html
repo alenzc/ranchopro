@@ -151,6 +151,7 @@ tr:hover td{background:var(--brand-light)}
     <div style="text-align:center;margin-top:16px;font-size:11px;color:var(--text3)">
       Problemas de acesso? Fale com o administrador.
     </div>
+    <div id="login-debug" style="margin-top:12px;font-size:10px;color:#aaa;text-align:center;word-break:break-all"></div>
   </div>
 </div>
 
@@ -1402,21 +1403,19 @@ function mostrarLogin(){
 }
 
 function mostrarApp(){
-  const ls = document.getElementById('login-screen');
-  const ma = document.getElementById('main-app');
-  const mn = document.getElementById('main-nav');
-  const mc2 = document.getElementById('main-content');
-  if(ls) ls.style.display = 'none';
-  if(ma) ma.style.display = 'flex';
-  if(mn) mn.style.display = 'flex';
-  if(mc2) mc2.style.display = 'block';
-  // Show user email in topbar
-  try {
-    const email = (USUARIO_ATUAL && USUARIO_ATUAL.email) ? USUARIO_ATUAL.email : '';
-    const nome = email.split('@')[0] || 'Usuário';
-    const el = document.getElementById('top-usuario');
-    if(el) el.textContent = nome;
-  } catch(e){}
+  const ls=document.getElementById('login-screen');
+  const ma=document.getElementById('main-app');
+  const mn=document.getElementById('main-nav');
+  const mc2=document.getElementById('main-content');
+  if(ls){ls.style.display='none';ls.style.visibility='hidden';}
+  if(ma){ma.style.display='flex';ma.style.visibility='visible';}
+  if(mn){mn.style.display='flex';mn.style.visibility='visible';}
+  if(mc2){mc2.style.display='block';mc2.style.visibility='visible';}
+  try{
+    const email=(USUARIO_ATUAL&&USUARIO_ATUAL.email)?USUARIO_ATUAL.email:'';
+    const el=document.getElementById('top-usuario');
+    if(el) el.textContent=email.split('@')[0]||'Usuário';
+  }catch(e){}
   carregarTudo();
 }
 
@@ -1425,75 +1424,72 @@ async function fazerLogin(){
   const senha = document.getElementById('login-senha').value;
   const btn = document.getElementById('btn-login');
   const erro = document.getElementById('login-erro');
+  const dbg = document.getElementById('login-debug');
 
-  if(!email || !senha){
-    erro.style.display='block';
-    erro.style.background='#FDEDEC';
-    erro.textContent='Preencha e-mail e senha.';
-    return;
+  function setErro(msg){ 
+    erro.style.display='block'; erro.style.background='#FDEDEC'; 
+    erro.style.color='#C62828'; erro.textContent=msg;
+  }
+  function setInfo(msg){ 
+    erro.style.display='block'; erro.style.background='#E3F2FD'; 
+    erro.style.color='#1565C0'; erro.textContent=msg;
+  }
+  function setOk(msg){ 
+    erro.style.display='block'; erro.style.background='#E8F5EE'; 
+    erro.style.color='#2E7D52'; erro.textContent=msg;
   }
 
-  btn.disabled = true;
-  btn.textContent = 'Entrando...';
-  erro.style.display = 'block';
-  erro.style.background = '#E3F2FD';
-  erro.style.color = '#1565C0';
-  erro.textContent = 'Conectando ao servidor...';
+  if(!email || !senha){ setErro('Preencha e-mail e senha.'); return; }
+
+  btn.disabled=true; btn.textContent='Entrando...';
+  setInfo('Conectando...');
+  if(dbg) dbg.textContent='';
 
   try {
-    // Test if supabase client is working
-    if(!sb || !sb.auth){
-      throw new Error('Cliente Supabase não inicializado. Recarregue a página.');
-    }
-
-    const { data, error } = await sb.auth.signInWithPassword({ 
-      email: email, 
-      password: senha 
-    });
-
+    const { data, error } = await sb.auth.signInWithPassword({email, password:senha});
+    
     if(error){
-      erro.style.display = 'block';
-      erro.style.background = '#FDEDEC';
-      erro.style.color = '#C62828';
-      if(error.message.includes('Invalid login') || error.message.includes('invalid_credentials')){
-        erro.textContent = 'E-mail ou senha incorretos. Verifique os dados e tente novamente.';
-      } else if(error.message.includes('Email not confirmed')){
-        erro.textContent = 'E-mail não confirmado. Verifique sua caixa de entrada ou peça ao administrador para confirmar sua conta no Supabase.';
-      } else if(error.message.includes('fetch')||error.message.includes('network')){
-        erro.textContent = 'Erro de conexão. Verifique sua internet e tente novamente.';
-      } else {
-        erro.textContent = 'Erro: ' + error.message;
-      }
-      btn.disabled = false;
-      btn.textContent = 'Entrar';
+      const msg = error.message||'';
+      if(msg.includes('Invalid')||msg.includes('invalid_credentials')) setErro('E-mail ou senha incorretos.');
+      else if(msg.includes('not confirmed')) setErro('Conta não confirmada. Contate o administrador.');
+      else setErro('Erro: '+msg);
+      btn.disabled=false; btn.textContent='Entrar';
       return;
     }
 
-    if(!data || !data.user){
-      erro.style.display = 'block';
-      erro.style.background = '#FDEDEC';
-      erro.style.color = '#C62828';
-      erro.textContent = 'Resposta inválida do servidor. Tente novamente.';
-      btn.disabled = false;
-      btn.textContent = 'Entrar';
+    if(!data||!data.user){
+      setErro('Sem resposta do servidor. Tente novamente.');
+      btn.disabled=false; btn.textContent='Entrar';
       return;
     }
 
-    erro.style.background = '#E8F5EE';
-    erro.style.color = '#2E7D52';
-    erro.textContent = 'Login realizado! Carregando sistema...';
-
+    setOk('Login OK! Abrindo sistema...');
     USUARIO_ATUAL = data.user;
-    try{ await registrarAudit('login', 'sistema', null, null); }catch(e){}
-    mostrarApp();
+    if(dbg) dbg.textContent='UID: '+data.user.id.substring(0,8)+'...';
+    
+    // Hide login screen first
+    const ls = document.getElementById('login-screen');
+    if(ls) ls.style.display='none';
+    
+    // Show app elements one by one
+    const ma = document.getElementById('main-app');
+    const mn = document.getElementById('main-nav');
+    const mc2 = document.getElementById('main-content');
+    if(ma){ ma.style.display='flex'; ma.style.visibility='visible'; }
+    if(mn){ mn.style.display='flex'; mn.style.visibility='visible'; }
+    if(mc2){ mc2.style.display='block'; mc2.style.visibility='visible'; }
+    
+    const eu = document.getElementById('top-usuario');
+    if(eu) eu.textContent = (data.user.email||'').split('@')[0];
+    
+    // Load data
+    try{ await registrarAudit('login','sistema',null,null); }catch(e){}
+    await carregarTudo();
 
   } catch(e) {
-    erro.style.display = 'block';
-    erro.style.background = '#FDEDEC';
-    erro.style.color = '#C62828';
-    erro.textContent = 'Erro inesperado: ' + e.message;
-    btn.disabled = false;
-    btn.textContent = 'Entrar';
+    setErro('Erro inesperado: '+e.message);
+    if(dbg) dbg.textContent='Stack: '+e.stack.substring(0,200);
+    btn.disabled=false; btn.textContent='Entrar';
   }
 }
 
