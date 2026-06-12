@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RanchoPro ERP</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.js"></script>
 <style>
 :root{
   --brand:#7B4A2D;--brand-light:#F5EDE5;--brand-mid:#C4956A;
@@ -682,7 +682,13 @@ tr:hover td{background:var(--brand-light)}
 <script>
 const SUPABASE_URL = 'https://bbrniodoxxsyhzbsegli.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJicm5pb2RveHhzeWh6YnNlZ2xpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNTc3NjYsImV4cCI6MjA5NDkzMzc2Nn0.9R6clBWQ_hlJzL3RGUoQfEHiHglhBYDM0JHHTLNB6nQ';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false
+  }
+});
 let USUARIO_ATUAL = null; // logged in user
 
 let ANIMAIS=[], PESAGENS=[], INSEMINACOES=[], PIQUETES=[], LOTES=[];
@@ -1368,31 +1374,49 @@ function toggleSenha(){
 }
 
 async function verificarSessao(){
-  const { data: { session } } = await sb.auth.getSession();
-  if(session){
-    USUARIO_ATUAL = session.user;
-    mostrarApp();
-  } else {
-    mostrarLogin();
+  // Show login screen immediately while checking session
+  mostrarLogin();
+  try {
+    const resp = await sb.auth.getSession();
+    const session = resp && resp.data ? resp.data.session : null;
+    if(session && session.user){
+      USUARIO_ATUAL = session.user;
+      mostrarApp();
+    }
+    // else stays on login screen
+  } catch(e) {
+    console.error('Erro ao verificar sessão:', e);
+    // stays on login screen
   }
 }
 
 function mostrarLogin(){
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('main-app').style.display = 'none';
-  document.getElementById('main-nav').style.display = 'none';
-  document.getElementById('main-content').style.display = 'none';
+  const ls = document.getElementById('login-screen');
+  const ma = document.getElementById('main-app');
+  const mn = document.getElementById('main-nav');
+  const mc2 = document.getElementById('main-content');
+  if(ls) ls.style.cssText = ls.style.cssText.replace(/display:[^;]+/g,'') + ';display:flex';
+  if(ma) ma.style.display = 'none';
+  if(mn) mn.style.display = 'none';
+  if(mc2) mc2.style.display = 'none';
 }
 
 function mostrarApp(){
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('main-app').style.display = 'flex';
-  document.getElementById('main-nav').style.display = 'flex';
-  document.getElementById('main-content').style.display = 'block';
+  const ls = document.getElementById('login-screen');
+  const ma = document.getElementById('main-app');
+  const mn = document.getElementById('main-nav');
+  const mc2 = document.getElementById('main-content');
+  if(ls) ls.style.display = 'none';
+  if(ma) ma.style.display = 'flex';
+  if(mn) mn.style.display = 'flex';
+  if(mc2) mc2.style.display = 'block';
   // Show user email in topbar
-  const email = USUARIO_ATUAL?.email || '';
-  const nome = email.split('@')[0];
-  document.getElementById('top-usuario').textContent = '👤 ' + nome;
+  try {
+    const email = (USUARIO_ATUAL && USUARIO_ATUAL.email) ? USUARIO_ATUAL.email : '';
+    const nome = email.split('@')[0] || 'Usuário';
+    const el = document.getElementById('top-usuario');
+    if(el) el.textContent = nome;
+  } catch(e){}
   carregarTudo();
 }
 
@@ -1404,29 +1428,73 @@ async function fazerLogin(){
 
   if(!email || !senha){
     erro.style.display='block';
+    erro.style.background='#FDEDEC';
     erro.textContent='Preencha e-mail e senha.';
     return;
   }
 
   btn.disabled = true;
   btn.textContent = 'Entrando...';
-  erro.style.display = 'none';
+  erro.style.display = 'block';
+  erro.style.background = '#E3F2FD';
+  erro.style.color = '#1565C0';
+  erro.textContent = 'Conectando ao servidor...';
 
-  const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
+  try {
+    // Test if supabase client is working
+    if(!sb || !sb.auth){
+      throw new Error('Cliente Supabase não inicializado. Recarregue a página.');
+    }
 
-  if(error){
+    const { data, error } = await sb.auth.signInWithPassword({ 
+      email: email, 
+      password: senha 
+    });
+
+    if(error){
+      erro.style.display = 'block';
+      erro.style.background = '#FDEDEC';
+      erro.style.color = '#C62828';
+      if(error.message.includes('Invalid login') || error.message.includes('invalid_credentials')){
+        erro.textContent = 'E-mail ou senha incorretos. Verifique os dados e tente novamente.';
+      } else if(error.message.includes('Email not confirmed')){
+        erro.textContent = 'E-mail não confirmado. Verifique sua caixa de entrada ou peça ao administrador para confirmar sua conta no Supabase.';
+      } else if(error.message.includes('fetch')||error.message.includes('network')){
+        erro.textContent = 'Erro de conexão. Verifique sua internet e tente novamente.';
+      } else {
+        erro.textContent = 'Erro: ' + error.message;
+      }
+      btn.disabled = false;
+      btn.textContent = 'Entrar';
+      return;
+    }
+
+    if(!data || !data.user){
+      erro.style.display = 'block';
+      erro.style.background = '#FDEDEC';
+      erro.style.color = '#C62828';
+      erro.textContent = 'Resposta inválida do servidor. Tente novamente.';
+      btn.disabled = false;
+      btn.textContent = 'Entrar';
+      return;
+    }
+
+    erro.style.background = '#E8F5EE';
+    erro.style.color = '#2E7D52';
+    erro.textContent = 'Login realizado! Carregando sistema...';
+
+    USUARIO_ATUAL = data.user;
+    try{ await registrarAudit('login', 'sistema', null, null); }catch(e){}
+    mostrarApp();
+
+  } catch(e) {
     erro.style.display = 'block';
-    erro.textContent = error.message.includes('Invalid') 
-      ? 'E-mail ou senha incorretos.' 
-      : 'Erro ao fazer login: ' + error.message;
+    erro.style.background = '#FDEDEC';
+    erro.style.color = '#C62828';
+    erro.textContent = 'Erro inesperado: ' + e.message;
     btn.disabled = false;
     btn.textContent = 'Entrar';
-    return;
   }
-
-  USUARIO_ATUAL = data.user;
-  await registrarAudit('login', 'sistema', null, null);
-  mostrarApp();
 }
 
 async function fazerLogout(){
