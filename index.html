@@ -185,15 +185,56 @@ tr:hover td{background:var(--brand-light)}
 <div class="content" id="main-content">
 
   <div id="sec-dashboard" class="sec active">
+
+    <!-- CONFIGURAÇÃO DA ESTAÇÃO DE MONTA -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="ch">
+        <span class="ct">&#128197; Estação de monta</span>
+        <button class="btn" onclick="salvarEstacao()" style="font-size:11px">&#10003; Salvar período</button>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <div><div class="fl">Início</div><input class="fi" type="date" id="em-inicio" style="width:150px"></div>
+        <div><div class="fl">Fim</div><input class="fi" type="date" id="em-fim" style="width:150px"></div>
+        <div id="em-label" style="font-size:12px;color:var(--text2);margin-top:16px"></div>
+      </div>
+    </div>
+
+    <!-- INDICADORES PRINCIPAIS -->
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Rebanho atual</div>
     <div class="metrics" id="dash-metrics"><div class="loading">Carregando dados...</div></div>
-    <div class="card">
-      <div class="ch"><span class="ct">Alertas</span></div>
+
+    <!-- INDICADORES REPRODUTIVOS -->
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px">Reprodução — estação de monta <span id="dash-repro-label" style="font-weight:400;text-transform:none;letter-spacing:0"></span></div>
+    <div class="metrics" id="dash-repro"></div>
+
+    <!-- INDICADORES PRODUTIVOS -->
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px">Produção — ano pecuário</div>
+    <div class="metrics" id="dash-prod"></div>
+
+    <!-- EVOLUÇÃO PESO POR CATEGORIA -->
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px">Peso médio por categoria</div>
+    <div class="card" style="padding:12px" id="dash-peso-cat"></div>
+
+    <!-- REBANHO -->
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px">Rebanho — ano pecuário</div>
+    <div class="metrics" id="dash-rebanho"></div>
+
+    <!-- INDICADORES FINANCEIROS -->
+    <div style="font-size:12px;font-weight:600;color:var(--text2);margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px">Financeiro — ano pecuário</div>
+    <div class="metrics" id="dash-fin"></div>
+
+    <!-- ALERTAS -->
+    <div class="card" style="margin-top:14px">
+      <div class="ch"><span class="ct">&#128276; Alertas</span></div>
       <div id="dash-alerts"><div class="loading">Carregando...</div></div>
     </div>
-    <div class="card">
-      <div class="ch"><span class="ct">Distribuição do rebanho</span></div>
+
+    <!-- DISTRIBUIÇÃO -->
+    <div class="card" style="margin-top:14px">
+      <div class="ch"><span class="ct">Distribuição do rebanho por faixa etária</span></div>
       <div id="dash-dist"></div>
     </div>
+
   </div>
 
   <div id="sec-animais" class="sec">
@@ -644,8 +685,9 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let USUARIO_ATUAL = null; // logged in user
 
-let ANIMAIS=[], PESAGENS=[], INSEMINACOES=[], PIQUETES=[];
+let ANIMAIS=[], PESAGENS=[], INSEMINACOES=[], PIQUETES=[], LOTES=[];
 let CATEGORIAS=[], SITUACOES=[];
+let HISTORICO = [];
 
 async function carregarTudo(){
   try {
@@ -777,62 +819,213 @@ function renderAll(){
   document.getElementById('top-info').textContent=
     new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'})+
     ' · '+ANIMAIS.length+' animais';
-  renderDash();renderAnimais();renderIns();renderPiquetes();preencherSelects();preencherFiltros();atualizarSelectsSituacao();if(document.getElementById("sec-lotes").classList.contains("active"))renderLotes();
+  carregarEstacaoLocal();renderDash();renderAnimais();renderIns();renderPiquetes();preencherSelects();preencherFiltros();atualizarSelectsSituacao();if(document.getElementById("sec-lotes").classList.contains("active"))renderLotes();
+}
+
+// ===== ESTAÇÃO DE MONTA =====
+let EM_INICIO = null, EM_FIM = null;
+
+function carregarEstacaoLocal(){
+  try{
+    const saved = localStorage.getItem('agrocampos_estacao');
+    if(saved){ const d=JSON.parse(saved); EM_INICIO=d.inicio; EM_FIM=d.fim; }
+  }catch(e){}
+  if(!EM_INICIO){
+    const ano = new Date().getFullYear();
+    EM_INICIO = ano+'-10-01';
+    EM_FIM = (ano+1)+'-03-31';
+  }
+  const ei=document.getElementById('em-inicio');
+  const ef=document.getElementById('em-fim');
+  if(ei) ei.value=EM_INICIO;
+  if(ef) ef.value=EM_FIM;
+  atualizarLabelEstacao();
+}
+
+function salvarEstacao(){
+  EM_INICIO=document.getElementById('em-inicio').value;
+  EM_FIM=document.getElementById('em-fim').value;
+  try{ localStorage.setItem('agrocampos_estacao',JSON.stringify({inicio:EM_INICIO,fim:EM_FIM})); }catch(e){}
+  atualizarLabelEstacao();
+  renderDash();
+}
+
+function atualizarLabelEstacao(){
+  const el=document.getElementById('em-label');
+  if(!el||!EM_INICIO||!EM_FIM) return;
+  const d1=new Date(EM_INICIO+'T00:00:00'), d2=new Date(EM_FIM+'T00:00:00');
+  const dias=Math.round((d2-d1)/86400000);
+  el.textContent=fmtData(EM_INICIO)+' → '+fmtData(EM_FIM)+' ('+dias+' dias)';
+}
+
+function mc(label, value, sub, color){
+  return '<div class="mc"><div class="mc-l">'+label+'</div><div class="mc-v" style="color:'+(color||'var(--text)')+'">'+value+'</div><div class="mc-s">'+sub+'</div></div>';
+}
+function pct(num,den){ if(!den)return'—'; return Math.round(num/den*100)+'%'; }
+function fmtN(n){ if(n==null||isNaN(n))return'—'; return Number(n).toLocaleString('pt-BR'); }
+function fmtR(n){ if(!n)return'—'; return 'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function diasEntre(d1,d2){ return Math.round((new Date(d2+' 00:00')-new Date(d1+' 00:00'))/86400000); }
+
+function anoPecuario(){
+  // Ano pecuário: 1 jul ao 30 jun do ano seguinte
+  const hoje = new Date();
+  const ano = hoje.getMonth() >= 6 ? hoje.getFullYear() : hoje.getFullYear()-1;
+  return { inicio: ano+'-07-01', fim: (ano+1)+'-06-30', label: 'Jul/'+ano+' – Jun/'+(ano+1) };
 }
 
 function renderDash(){
+  carregarEstacaoLocal();
+  const inicio=EM_INICIO, fim=EM_FIM;
+  const ap = anoPecuario();
+  const apInicio=ap.inicio, apFim=ap.fim;
+
+  // Update label
+  const rl = document.getElementById('dash-repro-label');
+  if(rl) rl.textContent = '('+fmtData(inicio)+' → '+fmtData(fim)+')';
+
+  // REBANHO ATUAL
   const tot=ANIMAIS.length;
-  const gest=ANIMAIS.filter(a=>a.cat==='Gestante').length;
-  const hoje=new Date().toISOString().split('T')[0];
-  const mesAtual=hoje.substring(0,7);
-  const insM=INSEMINACOES.filter(i=>i.data&&i.data.startsWith(mesAtual)).length;
+  const femeas=ANIMAIS.filter(a=>a.sexo==='F').length;
+  const machos=ANIMAIS.filter(a=>a.sexo==='M').length;
+  const gestantes=ANIMAIS.filter(a=>['Prenhe','Prenhe com cria ao pé'].includes(a.cat)).length;
   const pesos=ANIMAIS.map(a=>calcPesoAtual(a.id)).filter(Boolean);
   const pmedio=pesos.length?Math.round(pesos.reduce((s,v)=>s+v,0)/pesos.length):0;
-  document.getElementById('dash-metrics').innerHTML=`
-    <div class="mc"><div class="mc-l">Total rebanho</div><div class="mc-v">${tot}</div><div class="mc-s">animais cadastrados</div></div>
-    <div class="mc"><div class="mc-l">Em gestação</div><div class="mc-v">${gest}</div><div class="mc-s">fêmeas</div></div>
-    <div class="mc"><div class="mc-l">Insem. este mês</div><div class="mc-v">${insM}</div><div class="mc-s">procedimentos</div></div>
-    <div class="mc"><div class="mc-l">Peso médio</div><div class="mc-v">${pmedio||'—'}${pmedio?' kg':''}</div><div class="mc-s">animais com pesagem</div></div>
-  `;
-  const agDG=INSEMINACOES.filter(i=>i.resultado==='Aguardando DG').length;
-  const semPeso=ANIMAIS.filter(a=>!calcPesoAtual(a.id)).length;
-  document.getElementById('dash-alerts').innerHTML=`
-    ${agDG?`<div class="alert-row"><div class="adot" style="background:#f57f17"></div><div style="flex:1"><div style="font-size:12px;font-weight:600">${agDG} fêmea(s) aguardam diagnóstico de prenhez</div><div style="font-size:11px;color:#888">Verificar resultado das inseminações</div></div><span class="badge ba">DG pendente</span></div>`:''}
-    ${semPeso?`<div class="alert-row"><div class="adot" style="background:#1565c0"></div><div style="flex:1"><div style="font-size:12px;font-weight:600">${semPeso} animais sem pesagem registrada</div><div style="font-size:11px;color:#888">Registre o peso inicial</div></div><span class="badge bb">Dados</span></div>`:''}
-    ${!agDG&&!semPeso?`<div class="alert-row"><div class="adot" style="background:#1D9E75"></div><div style="flex:1"><div style="font-size:12px;font-weight:600">Sistema funcionando normalmente</div><div style="font-size:11px;color:#888">Dados sincronizados com o servidor</div></div><span class="badge bg">OK</span></div>`:''}
-  `;
-  // Visão geral por faixa etária (como iRancho)
-  const faixas={'0–8 meses':{M:0,F:0},'9–12 meses':{M:0,F:0},'13–24 meses':{M:0,F:0},'25–36 meses':{M:0,F:0},'36+ meses':{M:0,F:0}};
-  ANIMAIS.forEach(a=>{const f=faixaIdade(a.nasc);if(faixas[f])faixas[f][a.sexo==='M'?'M':'F']++;});
-  const total=ANIMAIS.length||1;
-  const rows=Object.entries(faixas).map(([f,v])=>`
-    <tr style="font-size:12px">
-      <td style="padding:7px 10px;border-bottom:1px solid #f0f0ec;color:#555">${f}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid #f0f0ec;text-align:center;font-weight:600">${v.M}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid #f0f0ec;text-align:center;font-weight:600">${v.F}</td>
-      <td style="padding:7px 10px;border-bottom:1px solid #f0f0ec;text-align:center;font-weight:600">${v.M+v.F}</td>
-    </tr>`).join('');
-  const totM=ANIMAIS.filter(a=>a.sexo==='M').length;
-  const totF=ANIMAIS.filter(a=>a.sexo==='F').length;
-  document.getElementById('dash-dist').innerHTML=`
-    <table style="width:100%;border-collapse:collapse">
-      <thead><tr style="font-size:11px;color:#888">
-        <th style="padding:7px 10px;text-align:left;border-bottom:1px solid #e5e5e0">FAIXA ETÁRIA</th>
-        <th style="padding:7px 10px;text-align:center;border-bottom:1px solid #e5e5e0">MACHOS</th>
-        <th style="padding:7px 10px;text-align:center;border-bottom:1px solid #e5e5e0">FÊMEAS</th>
-        <th style="padding:7px 10px;text-align:center;border-bottom:1px solid #e5e5e0">TOTAL</th>
-      </tr></thead>
-      <tbody>${rows}
-        <tr style="font-size:12px;font-weight:700;background:#f5f5f3">
-          <td style="padding:8px 10px">Total</td>
-          <td style="padding:8px 10px;text-align:center">${totM}</td>
-          <td style="padding:8px 10px;text-align:center">${totF}</td>
-          <td style="padding:8px 10px;text-align:center">${total}</td>
-        </tr>
-      </tbody>
-    </table>`;
-}
+  const touros=ANIMAIS.filter(a=>a.sexo==='M'&&(calcIdadeMeses(a.nasc)||0)>=24).length;
+  const vacas=ANIMAIS.filter(a=>a.sexo==='F'&&(a.partos||0)>=1).length;
+  const relTV=touros&&vacas?(vacas/touros).toFixed(1)+':1':'—';
+  document.getElementById('dash-metrics').innerHTML=
+    mc('Total rebanho',fmtN(tot),femeas+'F + '+machos+'M')+
+    mc('Fêmeas gestantes',fmtN(gestantes),pct(gestantes,femeas)+' das fêmeas',gestantes>0?'var(--green)':null)+
+    mc('Peso médio',pmedio?pmedio+' kg':'—','animais com pesagem')+
+    mc('Relação touro/vaca',relTV,touros+' touros · '+vacas+' vacas');
 
+  // REPRODUÇÃO
+  const insEM=INSEMINACOES.filter(i=>i.data&&i.data>=inicio&&i.data<=fim);
+  const totalIns=insEM.length;
+  const prenhes=insEM.filter(i=>i.resultado==='Prenhe').length;
+  const naopegaram=insEM.filter(i=>i.resultado==='Não pegou').length;
+  const aguardando=insEM.filter(i=>i.resultado==='Aguardando DG').length;
+  const base=totalIns-aguardando||1;
+  const txPrenhez=totalIns?Math.round(prenhes/base*100):0;
+  const txRetorno=totalIns?Math.round(naopegaram/base*100):0;
+  const abortos=HISTORICO.filter(h=>h.data&&h.data>=inicio&&h.data<=fim&&(h.obs||'').toLowerCase().includes('abort')).length;
+  const femeas2par=ANIMAIS.filter(a=>a.sexo==='F'&&(a.partos||0)>=2);
+  let ibpArr=[];
+  femeas2par.forEach(a=>{
+    const ps=INSEMINACOES.filter(i=>i.femea===a.id&&i.resultado==='Prenhe').sort((x,y)=>x.data.localeCompare(y.data));
+    for(let i=1;i<ps.length;i++){const d=diasEntre(ps[i-1].data,ps[i].data);if(d>200&&d<600)ibpArr.push(d);}
+  });
+  const ibp=ibpArr.length?Math.round(ibpArr.reduce((s,v)=>s+v,0)/ibpArr.length):null;
+  document.getElementById('dash-repro').innerHTML=
+    mc('Taxa de prenhez',txPrenhez+'%',prenhes+' prenhes / '+(totalIns-aguardando)+' DGs',txPrenhez>=60?'var(--green)':txPrenhez>0?'var(--amber)':null)+
+    mc('Inseminações no período',fmtN(totalIns),aguardando+' aguardando DG')+
+    mc('Taxa retorno ao cio',txRetorno+'%',naopegaram+' não pegaram',txRetorno>30?'var(--red)':null)+
+    mc('Índice de abortos',abortos||'0','registros com "abort" na observação',abortos>0?'var(--red)':null)+
+    mc('Intervalo entre partos',ibp?ibp+' dias':'—',ibp?'~'+(ibp/30).toFixed(1)+' meses · '+ibpArr.length+' fêmeas':'mín. 2 partos por fêmea');
+
+  // ── PRODUÇÃO (ano pecuário) ──────────────────────
+  const gmdArr=[];
+  ANIMAIS.forEach(a=>{
+    const ps=PESAGENS.filter(p=>p.animal_id===a.id&&p.data>=apInicio&&p.data<=apFim).sort((x,y)=>x.data.localeCompare(y.data));
+    if(ps.length>=2){
+      const ult=ps[ps.length-1],pen=ps[ps.length-2];
+      const d=diasEntre(pen.data,ult.data)||1;
+      const g=(ult.peso-pen.peso)/d;
+      if(g>0&&g<3)gmdArr.push(g);
+    }
+  });
+  const gmdMedio=gmdArr.length?(gmdArr.reduce((s,v)=>s+v,0)/gmdArr.length).toFixed(2):null;
+  const totalHA=PIQUETES.reduce((s,p)=>s+(p.ha||0),0);
+  // UA: bezerros=0.25, garrotes/novilhas=0.5, adultos=1.0, touros=1.25
+  const uaTotal=ANIMAIS.reduce((s,a)=>{
+    const m=calcIdadeMeses(a.nasc)||999;
+    if(m<8) return s+0.25;
+    if(m<24) return s+0.5;
+    if(a.sexo==='M') return s+1.25;
+    return s+1.0;
+  },0);
+  const lotacao=totalHA?(uaTotal/totalHA).toFixed(2):null;
+  document.getElementById('dash-prod').innerHTML=
+    mc('GMD médio',gmdMedio?gmdMedio+' kg/dia':'—',gmdArr.length+' animais no período',gmdMedio>=0.8?'var(--green)':gmdMedio>0.5?'var(--amber)':'var(--red)')+
+    mc('Taxa de lotação',lotacao?lotacao+' UA/ha':'—',totalHA?uaTotal.toFixed(0)+' UAs / '+totalHA+' ha':'Cadastre hectares nos piquetes',lotacao&&lotacao<=1.5?'var(--green)':lotacao&&lotacao<=2.5?'var(--amber)':'var(--red)')+
+    mc('Total UAs',uaTotal.toFixed(0),'unidades animais do rebanho')+
+    mc('Animais em recria',fmtN(ANIMAIS.filter(a=>['Recria','Novilha Vazia','Novilha Prenhe','Garrote'].includes(categoriaAuto(a))).length),'recria + novilhas + garrotes');
+
+  // ── PESO MÉDIO POR CATEGORIA ──────────────────────
+  const cats=['Bezerra','Bezerro','Novilha Vazia','Novilha Prenhe','Primípara','Primípara Prenhe','Multípara','Multípara Prenhe','Touro Reprodutor','Recria','Garrote'];
+  const pesoCatRows=cats.map(cat=>{
+    const lista=ANIMAIS.filter(a=>categoriaAuto(a)===cat);
+    if(!lista.length) return null;
+    const pesos=lista.map(a=>calcPesoAtual(a.id)).filter(Boolean);
+    const pm=pesos.length?Math.round(pesos.reduce((s,v)=>s+v,0)/pesos.length):null;
+    return {cat,n:lista.length,pm};
+  }).filter(Boolean);
+  const maxPeso=Math.max(...pesoCatRows.map(r=>r.pm||0),1);
+  document.getElementById('dash-peso-cat').innerHTML=pesoCatRows.length?
+    '<div style="display:grid;gap:6px">'+pesoCatRows.map(r=>
+      '<div style="display:flex;align-items:center;gap:10px">'+
+      '<div style="width:140px;font-size:11px;color:var(--text2);white-space:nowrap">'+r.cat+'</div>'+
+      '<div style="flex:1;background:var(--bg3);border-radius:3px;height:14px;overflow:hidden">'+
+        '<div style="width:'+Math.round((r.pm||0)/maxPeso*100)+'%;background:var(--brand);height:100%;border-radius:3px"></div>'+
+      '</div>'+
+      '<div style="width:90px;font-size:11px;font-weight:600;text-align:right">'+(r.pm?r.pm+' kg':'—')+'</div>'+
+      '<div style="width:30px;font-size:10px;color:var(--text3);text-align:right">'+r.n+'</div>'+
+      '</div>'
+    ).join('')+
+    '<div style="font-size:10px;color:var(--text3);margin-top:4px;text-align:right">n = quantidade de animais</div>'+
+    '</div>'
+  :'<span style="font-size:12px;color:var(--text3)">Registre pesagens para ver este indicador.</span>';
+
+  // ── REBANHO (ano pecuário) ──────────────────────
+  const mortesAP=HISTORICO.filter(h=>h.tipo==='Morte'&&h.data&&h.data>=apInicio&&h.data<=apFim).length;
+  const vendasAP=HISTORICO.filter(h=>h.tipo==='Venda'&&h.data&&h.data>=apInicio&&h.data<=apFim);
+  let animVendAP=0;
+  vendasAP.forEach(h=>{
+    if(h.animal_id&&!h.animal_id.startsWith('LOTE'))animVendAP++;
+    else if(h.obs){const m=h.obs.match(/(\d+) animais/);if(m)animVendAP+=parseInt(m[1]);}
+  });
+  const totRefAP=tot+mortesAP+animVendAP||1;
+  const txMorte=Math.round(mortesAP/totRefAP*100);
+  const txVenda=Math.round(animVendAP/totRefAP*100);
+  // Taxa de desmame: bezerros desmamados (>8 meses) / partos no período
+  const partosAP=INSEMINACOES.filter(i=>i.resultado==='Prenhe'&&i.data&&i.data>=apInicio&&i.data<=apFim).length;
+  const desmamados=ANIMAIS.filter(a=>{
+    const m=calcIdadeMeses(a.nasc)||0;
+    return m>=8&&m<=18&&a.nasc&&a.nasc>=apInicio;
+  }).length;
+  const txDesmame=partosAP?Math.round(desmamados/partosAP*100):null;
+  // Taxa de descarte: animais vendidos que eram matrizes (tinham partos)
+  const descartesAP=HISTORICO.filter(h=>h.tipo==='Venda'&&h.data&&h.data>=apInicio&&h.data<=apFim&&h.sexo==='F').length;
+  const txDescarte=vacas?Math.round(descartesAP/vacas*100):null;
+  document.getElementById('dash-rebanho').innerHTML=
+    mc('Índice de mortes',mortesAP+'',txMorte+'% do rebanho no período',mortesAP>0?'var(--red)':null)+
+    mc('Taxa de descarte/venda',animVendAP+'',txVenda+'% do rebanho — '+descartesAP+' fêmeas')+
+    mc('Taxa de desmame',txDesmame!==null?txDesmame+'%':'—',desmamados+' desmamados / '+partosAP+' partos esperados',txDesmame>=75?'var(--green)':txDesmame>0?'var(--amber)':null)+
+    mc('Ano pecuário',ap.label,'Jul/'+ap.inicio.substring(0,4)+' a Jun/'+(parseInt(ap.inicio.substring(0,4))+1));
+
+  // ── FINANCEIRO (ano pecuário) ──────────────────────
+  const receitaAP=vendasAP.reduce((s,v)=>s+(v.valor||0),0);
+  const pesoVListAP=vendasAP.map(h=>h.peso).filter(Boolean);
+  const pesoMedVAP=pesoVListAP.length?Math.round(pesoVListAP.reduce((s,v)=>s+v,0)/pesoVListAP.length):null;
+  const arrobaAP=pesoMedVAP?(pesoMedVAP/15).toFixed(1):null;
+  const vlArrobaAP=(receitaAP&&arrobaAP&&animVendAP)?Math.round(receitaAP/(animVendAP*(pesoMedVAP/15))):null;
+  document.getElementById('dash-fin').innerHTML=
+    mc('Receita total',fmtR(receitaAP),vendasAP.length+' venda(s) no ano pecuário',receitaAP>0?'var(--green)':null)+
+    mc('Animais vendidos',fmtN(animVendAP)||'0','no ano pecuário ('+ap.label+')')+
+    mc('Peso médio vendido',pesoMedVAP?pesoMedVAP+' kg ('+arrobaAP+'@)':'—','média das saídas')+
+    mc('Valor médio/@',vlArrobaAP?'R$ '+fmtN(vlArrobaAP):'—','estimativa por arroba');
+
+  // ALERTAS
+  const agDG2=INSEMINACOES.filter(i=>i.resultado==='Aguardando DG').length;
+  const semPeso=ANIMAIS.filter(a=>!calcPesoAtual(a.id)).length;
+  const semLote=ANIMAIS.filter(a=>!a.lote).length;
+  const piqSL=PIQUETES.filter(p=>p.cap&&ANIMAIS.filter(a=>a.piquete===p.nome).length>p.cap).length;
+  document.getElementById('dash-alerts').innerHTML=
+    (agDG2?'<div class="alert-row"><div class="adot" style="background:var(--amber)"></div><div style="flex:1"><div style="font-size:12px;font-weight:600">'+agDG2+' fêmea(s) aguardam diagnóstico de prenhez</div><div style="font-size:11px;color:var(--text2)">Verificar resultado das inseminações</div></div><span class="badge ba">DG pendente</span></div>':'')+
+    (piqSL?'<div class="alert-row"><div class="adot" style="background:var(--red)"></div><div style="flex:1"><div style="font-size:12px;font-weight:600">'+piqSL+' piquete(s) acima da capacidade</div><div style="font-size:11px;color:var(--text2)">Verifique a aba Piquetes</div></div><span class="badge br">Superlotado</span></div>':'')+
+    (semPeso?'<div class="alert-row"><div class="adot" style="background:#1565c0"></div><div style="flex:1"><div style="font-size:12px;font-weight:600">'+semPeso+' animais sem pesagem registrada</div><div style="font-size:11px;color:var(--text2)">Registre o peso inicial</div></div><span class="badge bb">Dados</span></div>':'')+
+    (semLote?'<div class="alert-row"><div class="adot" style="background:#888"></div><div style="flex:1"><div style="font-size:12px;font-weight:600">'+semLote+' animais sem lote definido</div><div style="font-size:11px;color:var(--text2)">Atribua lotes na aba Lotes</div></div><span class="badge bgr">Lotes</span></div>':'')+
+    (!agDG2&&!semPeso&&!piqSL?'<div class="alert-row"><div class="adot" style="background:var(--green)"></div><div style="flex:1"><div style="font-size:12px;font-weight:600">Sistema funcionando normalmente</div><div style="font-size:11px;color:var(--text2)">Dados sincronizados com o servidor</div></div><span class="badge bg">OK</span></div>':'');
 let animaisFiltrados=[];
 function renderAnimais(){
   const q=(document.getElementById('busca').value||'').toLowerCase();
@@ -2646,6 +2839,9 @@ function exportarTudo() {
   setTimeout(() => exportarPesagens(), 500);
   setTimeout(() => exportarInseminacoes(), 1000);
   setTimeout(() => exportarPiquetes(), 1500);
+}
+
+verificarSessao();
 }
 </script>
 
