@@ -175,6 +175,7 @@ tr:hover td{background:var(--brand-light)}
   <button class="nb" onclick="nav('inseminacoes',this)">&#9632; Inseminações</button>
   <button class="nb" onclick="nav('genealogia',this)">&#9632; Genealogia</button>
   <button class="nb" onclick="nav('piquetes',this)">&#9632; Piquetes</button>
+  <button class="nb" onclick="nav('lotes',this)">&#9632; Lotes</button>
   <button class="nb" onclick="nav('mapa',this)">&#9632; Mapa de Rebanho</button>
   <button class="nb" onclick="nav('historico',this)">&#9632; Histórico</button>
   <button class="nb" onclick="nav('manejos',this)">&#9632; Manejos</button>
@@ -219,6 +220,9 @@ tr:hover td{background:var(--brand-light)}
       <select id="filtro-piquete-ani" onchange="filtrarAnimais()">
         <option value="">Todos os piquetes</option>
       </select>
+      <select id="filtro-lote-ani" onchange="filtrarAnimais()">
+        <option value="">Todos os lotes</option>
+      </select>
       <select id="filtro-sexo" onchange="filtrarAnimais()">
         <option value="">M + F</option>
         <option value="F">Fêmeas</option>
@@ -242,6 +246,7 @@ tr:hover td{background:var(--brand-light)}
       <label><input type="checkbox" checked onchange="toggleCol('col-situacao',this.checked)"> Situação</label>
       <label><input type="checkbox" onchange="toggleCol('col-pai',this.checked)"> Pai</label>
       <label><input type="checkbox" onchange="toggleCol('col-mae',this.checked)"> Mãe</label>
+      <label><input type="checkbox" checked onchange="toggleCol('col-lote',this.checked)"> Lote</label>
       <label><input type="checkbox" onchange="toggleCol('col-partos',this.checked)"> Partos</label>
     </div>
     <div class="card">
@@ -258,6 +263,7 @@ tr:hover td{background:var(--brand-light)}
           <th class="col-piquete" onclick="sortAnimais('piquete')">Piquete <span class="sort-icon">⇅</span></th>
           <th class="col-cat">Categoria</th>
           <th class="col-situacao" onclick="sortAnimais('cat')">Situação <span class="sort-icon">⇅</span></th>
+          <th class="col-lote" onclick="sortAnimais('lote')">Lote <span class="sort-icon">⇅</span></th>
           <th class="col-pai" style="display:none">Pai</th>
           <th class="col-mae" style="display:none">Mãe</th>
           <th class="col-partos" style="display:none" onclick="sortAnimais('partos')">Partos <span class="sort-icon">⇅</span></th>
@@ -323,6 +329,32 @@ tr:hover td{background:var(--brand-light)}
     </div>
     <div class="pq-grid" id="grid-pq"><div class="loading">Carregando...</div></div>
   </div>
+  <div id="sec-lotes" class="sec">
+    <div class="sec-header">
+      <span class="sec-title">Lotes de manejo</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="abrirModal('modal-lote')">+ Novo lote</button>
+        <button class="btn" onclick="abrirManejo('transferencia_lote')">&#8651; Mover animais em lote</button>
+        <button class="btn" onclick="exportarLotes()">&#8595; Exportar Excel</button>
+      </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="sr">
+      <select id="filtro-lote-ativo" onchange="renderLotes()">
+        <option value="">Todos os lotes</option>
+        <option value="true">Lotes ativos</option>
+        <option value="false">Lotes encerrados</option>
+      </select>
+      <input type="text" id="busca-lote" placeholder="Buscar lote..." oninput="renderLotes()" style="min-width:200px">
+    </div>
+
+    <!-- GRID DE LOTES -->
+    <div id="grid-lotes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">
+      <div class="loading">Carregando lotes...</div>
+    </div>
+  </div>
+
   <div id="sec-mapa" class="sec">
     <div class="sec-header">
       <span class="sec-title">Mapa de Rebanho</span>
@@ -628,6 +660,11 @@ async function carregarTudo(){
   PESAGENS = p.data||[];
   INSEMINACOES = i.data||[];
   PIQUETES = q.data||[];
+  // Load lotes
+  try {
+    const lt = await sb.from('lotes').select('*').order('nome');
+    LOTES = lt.data||[];
+  } catch(e){ LOTES=[]; }
   // Load historico (if table exists)
   try {
     const hist = await sb.from('historico').select('*').order('data',{ascending:false});
@@ -729,6 +766,7 @@ function nav(id,btn){
   if(id==='animais')renderAnimais();
   if(id==='inseminacoes'){preencherSelects();renderIns();}
   if(id==='piquetes')renderPiquetes();
+  if(id==='lotes'){renderLotes();}
   if(id==='mapa')renderMapa();
   if(id==='historico')renderHistorico();
   if(id==='manejos')renderManejosHist();
@@ -739,7 +777,7 @@ function renderAll(){
   document.getElementById('top-info').textContent=
     new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'})+
     ' · '+ANIMAIS.length+' animais';
-  renderDash();renderAnimais();renderIns();renderPiquetes();preencherSelects();preencherFiltros();atualizarSelectsSituacao();
+  renderDash();renderAnimais();renderIns();renderPiquetes();preencherSelects();preencherFiltros();atualizarSelectsSituacao();if(document.getElementById("sec-lotes").classList.contains("active"))renderLotes();
 }
 
 function renderDash(){
@@ -802,6 +840,7 @@ function renderAnimais(){
   const situ=(document.getElementById('filtro-situacao').value||'').toLowerCase();
   const piq=(document.getElementById('filtro-piquete-ani').value||'');
   const sexF=(document.getElementById('filtro-sexo').value||'');
+  const loteF=(document.getElementById('filtro-lote-ani')?document.getElementById('filtro-lote-ani').value||'':'');
   animaisFiltrados=ANIMAIS.filter(a=>{
     const match=!q||(a.id+(a.nome||'')+(a.raca||'')).toLowerCase().includes(q);
     const catAuto=categoriaAuto(a);
@@ -809,7 +848,8 @@ function renderAnimais(){
     const situOk=!situ||(a.cat||'').toLowerCase()===situ;
     const piqOk=!piq||a.piquete===piq;
     const sexOk=!sexF||a.sexo===sexF;
-    return match&&catOk&&situOk&&piqOk&&sexOk;
+    const loteOk=!loteF||a.lote===loteF;
+    return match&&catOk&&situOk&&piqOk&&sexOk&&loteOk;
   });
   document.getElementById('count-animais').textContent=`Exibindo ${animaisFiltrados.length} de ${ANIMAIS.length} animais`;
   document.getElementById('tbody-animais').innerHTML=animaisFiltrados.length?animaisFiltrados.map(a=>{
@@ -827,6 +867,7 @@ function renderAnimais(){
       <td class="col-piquete"><span class="badge bb">${a.piquete||'—'}</span></td>
       <td class="col-cat"><span class="badge ${catBadge[catDisplay]||'bgr'}">${catDisplay}</span></td>
       <td class="col-situacao"><span class="badge ${situBadge[a.cat]||'bgr'}">${a.cat||'—'}</span></td>
+      <td class="col-lote"><span style="font-size:10px;color:var(--text2)">${a.lote||'—'}</span></td>
       <td class="col-pai" style="display:none">${a.pai||'—'}</td>
       <td class="col-mae" style="display:none">${a.mae||'—'}</td>
       <td class="col-partos" style="display:none">${a.partos||0}</td>
@@ -1563,6 +1604,273 @@ function renderManejosHist(){
 }
 
 
+
+// ===== LOTES =====
+let loteEditandoId = null;
+let loteAtualId = null;
+let animaisAdicionarFiltrados = [];
+let animaisSelecionados = new Set();
+
+function renderLotes(){
+  const ativo = document.getElementById('filtro-lote-ativo').value;
+  const q = (document.getElementById('busca-lote').value||'').toLowerCase();
+  const lista = LOTES.filter(l => {
+    const atvOk = !ativo || String(l.ativo) === ativo;
+    const qOk = !q || l.nome.toLowerCase().includes(q) || (l.descricao||'').toLowerCase().includes(q);
+    return atvOk && qOk;
+  });
+  if(!lista.length){
+    document.getElementById('grid-lotes').innerHTML = '<div class="empty" style="grid-column:1/-1">Nenhum lote encontrado. Clique em "+ Novo lote" para criar.</div>';
+    return;
+  }
+  document.getElementById('grid-lotes').innerHTML = lista.map(l => {
+    const animaisNoLote = ANIMAIS.filter(a => a.lote === l.id);
+    const machos = animaisNoLote.filter(a => a.sexo === 'M').length;
+    const femeas = animaisNoLote.filter(a => a.sexo === 'F').length;
+    const cor = l.ativo ? 'var(--brand)' : 'var(--text3)';
+    const ne = l.id.replace(/'/g,"\'");
+    return `<div class="card" style="border-left:4px solid ${cor}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div>
+          <div style="font-weight:700;font-size:13px;color:var(--text)">${l.nome}</div>
+          ${l.descricao?`<div style="font-size:11px;color:var(--text2);margin-top:2px">${l.descricao}</div>`:''}
+        </div>
+        <span class="badge ${l.ativo?'bg':'bgr'}">${l.ativo?'Ativo':'Encerrado'}</span>
+      </div>
+      <div style="display:flex;gap:12px;margin-bottom:12px">
+        <div class="mc" style="flex:1;padding:10px">
+          <div class="mc-l">Total</div>
+          <div class="mc-v" style="font-size:18px">${animaisNoLote.length}</div>
+        </div>
+        <div class="mc" style="flex:1;padding:10px">
+          <div class="mc-l">Fêmeas</div>
+          <div class="mc-v" style="font-size:18px">${femeas}</div>
+        </div>
+        <div class="mc" style="flex:1;padding:10px">
+          <div class="mc-l">Machos</div>
+          <div class="mc-v" style="font-size:18px">${machos}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-p" style="flex:1;justify-content:center;font-size:11px" onclick="verAnimaisLote('${ne}')">&#128065; Ver animais</button>
+        <button class="btn" style="font-size:11px" onclick="editarLote('${ne}')">&#9998;</button>
+        <button class="btn btn-danger" style="font-size:11px" onclick="encerrarLote('${ne}')" title="${l.ativo?'Encerrar lote':'Reativar lote'}">${l.ativo?'&#9723;':'&#9654;'}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function resetFormLote(){
+  loteEditandoId = null;
+  document.getElementById('lote-nome').value = '';
+  document.getElementById('lote-desc').value = '';
+  document.getElementById('lote-ativo').value = 'true';
+  document.getElementById('modal-lote-titulo').textContent = 'Novo lote';
+  document.getElementById('btn-salvar-lote').textContent = '✓ Salvar lote';
+  document.getElementById('btn-salvar-lote').onclick = salvarLote;
+}
+
+function editarLote(id){
+  const l = LOTES.find(x=>x.id===id);
+  if(!l) return;
+  loteEditandoId = id;
+  document.getElementById('lote-nome').value = l.nome;
+  document.getElementById('lote-desc').value = l.descricao||'';
+  document.getElementById('lote-ativo').value = String(l.ativo);
+  document.getElementById('modal-lote-titulo').textContent = 'Editar lote — ' + l.nome;
+  document.getElementById('btn-salvar-lote').textContent = '✓ Salvar alterações';
+  document.getElementById('btn-salvar-lote').onclick = salvarEdicaoLote;
+  document.getElementById('modal-lote').style.display = 'flex';
+}
+
+async function salvarLote(){
+  const nome = document.getElementById('lote-nome').value.trim();
+  if(!nome){ alert('Nome do lote é obrigatório.'); return; }
+  const id = 'lote_' + Date.now();
+  const {error} = await sb.from('lotes').insert({
+    id, nome, descricao: document.getElementById('lote-desc').value.trim()||null,
+    ativo: document.getElementById('lote-ativo').value === 'true'
+  });
+  if(error){ alert('Erro: '+error.message); return; }
+  await registrarAudit('novo_lote','lotes',id,{nome});
+  fecharModal('modal-lote'); resetFormLote();
+  await carregarTudo(); renderLotes();
+}
+
+async function salvarEdicaoLote(){
+  const nome = document.getElementById('lote-nome').value.trim();
+  if(!nome){ alert('Nome do lote é obrigatório.'); return; }
+  const {error} = await sb.from('lotes').update({
+    nome, descricao: document.getElementById('lote-desc').value.trim()||null,
+    ativo: document.getElementById('lote-ativo').value === 'true'
+  }).eq('id', loteEditandoId);
+  if(error){ alert('Erro: '+error.message); return; }
+  await registrarAudit('edicao_lote','lotes',loteEditandoId,{nome});
+  fecharModal('modal-lote'); resetFormLote();
+  await carregarTudo(); renderLotes();
+}
+
+async function encerrarLote(id){
+  const l = LOTES.find(x=>x.id===id);
+  if(!l) return;
+  const novoStatus = !l.ativo;
+  const msg = novoStatus
+    ? `Reativar o lote "${l.nome}"?`
+    : `Encerrar o lote "${l.nome}"? Os animais continuarão vinculados ao lote para histórico.`;
+  if(!confirm(msg)) return;
+  await sb.from('lotes').update({ativo: novoStatus}).eq('id', id);
+  await registrarAudit(novoStatus?'reativar_lote':'encerrar_lote','lotes',id,{nome:l.nome});
+  await carregarTudo(); renderLotes();
+}
+
+function verAnimaisLote(id){
+  const l = LOTES.find(x=>x.id===id);
+  if(!l) return;
+  loteAtualId = id;
+  document.getElementById('modal-animais-lote-titulo').textContent = l.nome;
+  document.getElementById('busca-animal-lote').value = '';
+  renderAnimaisDoLote();
+  document.getElementById('modal-animais-lote').style.display = 'flex';
+}
+
+function renderAnimaisDoLote(){
+  const q = (document.getElementById('busca-animal-lote').value||'').toLowerCase();
+  const lista = ANIMAIS.filter(a => a.lote === loteAtualId && (!q || (a.id+' '+(a.nome||'')).toLowerCase().includes(q)));
+  const machos = lista.filter(a=>a.sexo==='M').length;
+  const femeas = lista.filter(a=>a.sexo==='F').length;
+  const pesoMedio = lista.map(a=>calcPesoAtual(a.id)).filter(Boolean);
+  const pm = pesoMedio.length ? Math.round(pesoMedio.reduce((s,v)=>s+v,0)/pesoMedio.length) : 0;
+  document.getElementById('lote-resumo').innerHTML = `
+    <span>Total: <strong>${lista.length}</strong></span>
+    <span>Fêmeas: <strong>${femeas}</strong></span>
+    <span>Machos: <strong>${machos}</strong></span>
+    ${pm?`<span>Peso médio: <strong>${pm} kg</strong></span>`:''}
+  `;
+  document.getElementById('tbody-animais-lote').innerHTML = lista.length ? lista.map(a => {
+    const peso = calcPesoAtual(a.id);
+    const ne = a.id.replace(/'/g,"\'");
+    return `<tr>
+      <td><strong>${a.id}</strong></td>
+      <td>${a.nome||'—'}</td>
+      <td>${a.raca||'—'}</td>
+      <td>${a.sexo==='F'?'Fêmea':'Macho'}</td>
+      <td>${calcIdade(a.nasc)}</td>
+      <td><span class="badge ${({'Prenhe':'bg','Vazia':'ba','Exposta':'ba'})[a.cat]||'bgr'}">${a.cat||'—'}</span></td>
+      <td>${a.piquete||'—'}</td>
+      <td><button class="btn btn-danger" style="padding:2px 8px;font-size:11px" onclick="removerDoLote('${ne}')" title="Remover do lote">&#10005;</button></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="8" class="empty">Nenhum animal neste lote.</td></tr>';
+}
+
+function filtrarAnimaisLote(){ renderAnimaisDoLote(); }
+
+async function removerDoLote(animalId){
+  if(!confirm(`Remover animal ${animalId} do lote?`)) return;
+  const {error} = await sb.from('animais').update({lote: null}).eq('id', animalId);
+  if(error){ alert('Erro: '+error.message); return; }
+  await registrarAudit('remover_do_lote','animais',animalId,{lote: loteAtualId});
+  await carregarTudo();
+  renderAnimaisDoLote();
+  renderLotes();
+}
+
+function abrirAdicionarAoLote(){
+  animaisSelecionados = new Set();
+  document.getElementById('busca-add-lote').value = '';
+  document.getElementById('filtro-add-sexo').value = '';
+  document.getElementById('filtro-add-piquete').value = '';
+  document.getElementById('filtro-add-situacao').value = '';
+  // Populate piquete filter
+  const sp = document.getElementById('filtro-add-piquete');
+  sp.innerHTML = '<option value="">Todos os piquetes</option>' + PIQUETES.map(p=>`<option>${p.nome}</option>`).join('');
+  // Populate situacao filter
+  const ss = document.getElementById('filtro-add-situacao');
+  ss.innerHTML = '<option value="">Todas as situações</option>' + SITUACOES.map(s=>`<option>${s.nome}</option>`).join('');
+  filtrarParaAdicionar();
+  document.getElementById('modal-add-lote').style.display = 'flex';
+}
+
+function filtrarParaAdicionar(){
+  const q = (document.getElementById('busca-add-lote').value||'').toLowerCase();
+  const sexo = document.getElementById('filtro-add-sexo').value;
+  const piq = document.getElementById('filtro-add-piquete').value;
+  const sit = document.getElementById('filtro-add-situacao').value;
+  animaisAdicionarFiltrados = ANIMAIS.filter(a => {
+    const qOk = !q || (a.id+' '+(a.nome||'')+(a.raca||'')).toLowerCase().includes(q);
+    const sOk = !sexo || a.sexo === sexo;
+    const pOk = !piq || a.piquete === piq;
+    const stOk = !sit || a.cat === sit;
+    return qOk && sOk && pOk && stOk;
+  });
+  document.getElementById('tbody-add-lote').innerHTML = animaisAdicionarFiltrados.map(a => {
+    const loteAtual = LOTES.find(l=>l.id===a.lote);
+    const checked = animaisSelecionados.has(a.id) ? 'checked' : '';
+    return `<tr>
+      <td><input type="checkbox" ${checked} onchange="toggleSelecao('${a.id.replace(/'/g,"\'")}',this.checked)"></td>
+      <td><strong>${a.id}</strong></td>
+      <td>${a.nome||'—'}</td>
+      <td>${loteAtual?`<span class="badge bb" style="font-size:10px">${loteAtual.nome}</span>`:'<span style="color:var(--text3);font-size:11px">Sem lote</span>'}</td>
+      <td><span class="badge ${({'Prenhe':'bg','Vazia':'ba','Exposta':'ba'})[a.cat]||'bgr'}">${a.cat||'—'}</span></td>
+      <td>${a.piquete||'—'}</td>
+    </tr>`;
+  }).join('');
+  atualizarContadorSelecao();
+}
+
+function toggleSelecao(id, checked){
+  if(checked) animaisSelecionados.add(id); else animaisSelecionados.delete(id);
+  atualizarContadorSelecao();
+}
+function selecionarTodosVisiveis(){
+  animaisAdicionarFiltrados.forEach(a=>animaisSelecionados.add(a.id));
+  filtrarParaAdicionar();
+}
+function limparSelecao(){
+  animaisSelecionados.clear();
+  filtrarParaAdicionar();
+}
+function toggleTodos(checked){
+  if(checked) selecionarTodosVisiveis(); else limparSelecao();
+}
+function atualizarContadorSelecao(){
+  document.getElementById('add-lote-count').textContent = animaisSelecionados.size + ' animais selecionados';
+}
+
+async function confirmarAdicionarAoLote(){
+  if(!animaisSelecionados.size){ alert('Selecione pelo menos um animal.'); return; }
+  const ids = [...animaisSelecionados];
+  let ok = 0;
+  // Update in batches of 50
+  for(let i=0; i<ids.length; i+=50){
+    const batch = ids.slice(i, i+50);
+    const {error} = await sb.from('animais').update({lote: loteAtualId}).in('id', batch);
+    if(!error) ok += batch.length;
+  }
+  await registrarAudit('adicionar_ao_lote','animais',loteAtualId,{quantidade: ok});
+  await carregarTudo();
+  fecharModal('modal-add-lote');
+  renderAnimaisDoLote();
+  renderLotes();
+  alert(`✓ ${ok} animais adicionados ao lote com sucesso!`);
+}
+
+function exportarLotes(){
+  const dados = [];
+  LOTES.forEach(l => {
+    const animaisNoLote = ANIMAIS.filter(a=>a.lote===l.id);
+    animaisNoLote.forEach(a => {
+      dados.push({
+        'Lote': l.nome, 'Status lote': l.ativo?'Ativo':'Encerrado',
+        'Brinco': a.id, 'Nome': a.nome||'', 'Raça': a.raca||'',
+        'Sexo': a.sexo==='F'?'Fêmea':'Macho', 'Nascimento': a.nasc||'',
+        'Idade': calcIdade(a.nasc), 'Peso (kg)': calcPesoAtual(a.id)||'',
+        'Piquete': a.piquete||'', 'Situação': a.cat||'',
+      });
+    });
+  });
+  exportarCSV(dados, 'lotes_agrocampos.csv');
+}
+
 // ===== SAÍDAS (VENDA / MORTE) =====
 let saidaTipo = 'Venda';
 
@@ -2219,6 +2527,7 @@ function sortAnimais(field) {
       <td class="col-piquete"><span class="badge bb">${a.piquete||'—'}</span></td>
       <td class="col-cat"><span class="badge ${catBadgeL[catDisplay]||'bgr'}">${catDisplay}</span></td>
       <td class="col-situacao"><span class="badge ${situBadge[a.cat]||'bgr'}">${a.cat||'—'}</span></td>
+      <td class="col-lote"><span style="font-size:10px;color:var(--text2)">${a.lote||'—'}</span></td>
       <td class="col-pai" style="display:none">${a.pai||'—'}</td>
       <td class="col-mae" style="display:none">${a.mae||'—'}</td>
       <td class="col-partos" style="display:none">${a.partos||0}</td>
@@ -2234,10 +2543,9 @@ function sortAnimais(field) {
 // ===== PIQUETE FILTER POPULATE =====
 function preencherFiltros() {
   const sel = document.getElementById('filtro-piquete-ani');
-  if (!sel) return;
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">Todos os piquetes</option>' +
-    PIQUETES.map(p => `<option${p.nome===cur?' selected':''}>${p.nome}</option>`).join('');
+  if(sel){ const cur=sel.value; sel.innerHTML='<option value="">Todos os piquetes</option>'+PIQUETES.map(p=>`<option${p.nome===cur?' selected':''}>${p.nome}</option>`).join(''); }
+  const selL = document.getElementById('filtro-lote-ani');
+  if(selL){ const cur=selL.value; selL.innerHTML='<option value="">Todos os lotes</option>'+LOTES.map(l=>`<option value="${l.id}"${l.id===cur?' selected':''}>${l.nome}</option>`).join(''); }
 }
 
 // ===== EXPORTAR PARA EXCEL =====
@@ -2441,6 +2749,92 @@ function exportarTudo() {
     <div class="modal-btns">
       <button class="btn btn-s" onclick="confirmarSaida()">&#10003; Confirmar saída</button>
       <button class="btn" onclick="fecharModal('modal-saida')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL LOTE -->
+<div id="modal-lote" class="overlay" style="display:none">
+  <div class="modal">
+    <h3 id="modal-lote-titulo">Novo lote</h3>
+    <div class="fg full">
+      <div><div class="fl">Nome do lote *</div>
+        <input class="fi" id="lote-nome" placeholder="ex: IATF VACAS PARIDAS JUN/26">
+      </div>
+    </div>
+    <div class="fg full">
+      <div><div class="fl">Descrição</div>
+        <input class="fi" id="lote-desc" placeholder="opcional — ex: Vacas paridas até 60 dias pós-parto">
+      </div>
+    </div>
+    <div class="fg full">
+      <div><div class="fl">Status</div>
+        <select class="fi" id="lote-ativo">
+          <option value="true">Ativo</option>
+          <option value="false">Encerrado</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-s" id="btn-salvar-lote" onclick="salvarLote()">&#10003; Salvar lote</button>
+      <button class="btn" onclick="fecharModal('modal-lote');resetFormLote()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ANIMAIS DO LOTE -->
+<div id="modal-animais-lote" class="overlay" style="display:none">
+  <div class="modal" style="max-width:700px">
+    <h3 id="modal-animais-lote-titulo">Animais do lote</h3>
+    <div class="sr" style="margin-bottom:10px">
+      <input type="text" id="busca-animal-lote" placeholder="Buscar brinco ou nome..." oninput="filtrarAnimaisLote()" style="min-width:200px">
+      <button class="btn btn-p" onclick="abrirAdicionarAoLote()">+ Adicionar animais</button>
+      <button class="btn" onclick="fecharModal('modal-animais-lote')">Fechar</button>
+    </div>
+    <div class="tw" style="max-height:400px;overflow-y:auto">
+      <table><thead><tr>
+        <th>Brinco</th><th>Nome</th><th>Raça</th><th>Sexo</th><th>Idade</th><th>Situação</th><th>Piquete</th><th></th>
+      </tr></thead>
+      <tbody id="tbody-animais-lote"></tbody></table>
+    </div>
+    <div id="lote-resumo" style="margin-top:10px;font-size:12px;color:var(--text2);display:flex;gap:16px;flex-wrap:wrap"></div>
+  </div>
+</div>
+
+<!-- MODAL ADICIONAR ANIMAIS AO LOTE -->
+<div id="modal-add-lote" class="overlay" style="display:none">
+  <div class="modal" style="max-width:700px">
+    <h3>Adicionar animais ao lote</h3>
+    <div class="sr">
+      <input type="text" id="busca-add-lote" placeholder="Buscar brinco, nome ou raça..." oninput="filtrarParaAdicionar()" style="min-width:200px">
+      <select id="filtro-add-sexo" onchange="filtrarParaAdicionar()">
+        <option value="">M + F</option>
+        <option value="F">Fêmeas</option>
+        <option value="M">Machos</option>
+      </select>
+      <select id="filtro-add-piquete" onchange="filtrarParaAdicionar()">
+        <option value="">Todos os piquetes</option>
+      </select>
+      <select id="filtro-add-situacao" onchange="filtrarParaAdicionar()">
+        <option value="">Todas as situações</option>
+      </select>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">
+      <span id="add-lote-count">0 animais selecionados</span>
+      <button class="btn" style="padding:2px 8px;font-size:11px;margin-left:8px" onclick="selecionarTodosVisiveis()">Selecionar todos visíveis</button>
+      <button class="btn" style="padding:2px 8px;font-size:11px;margin-left:4px" onclick="limparSelecao()">Limpar seleção</button>
+    </div>
+    <div class="tw" style="max-height:350px;overflow-y:auto">
+      <table><thead><tr>
+        <th style="width:32px"><input type="checkbox" id="check-todos" onchange="toggleTodos(this.checked)"></th>
+        <th>Brinco</th><th>Nome</th><th>Lote atual</th><th>Situação</th><th>Piquete</th>
+      </tr></thead>
+      <tbody id="tbody-add-lote"></tbody></table>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-s" onclick="confirmarAdicionarAoLote()">&#10003; Adicionar selecionados</button>
+      <button class="btn" onclick="fecharModal('modal-add-lote')">Cancelar</button>
     </div>
   </div>
 </div>
