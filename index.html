@@ -133,7 +133,7 @@ tr:hover td{background:var(--brand-light)}
       <div style="font-size:20px;font-weight:700;color:var(--text)">AgroCampos</div>
       <div style="font-size:13px;color:var(--text2);margin-top:4px">RanchoPro ERP — Acesso restrito</div>
     </div>
-    <div id="login-erro" style="display:none;background:#FDEDEC;border:1px solid #FADBD8;border-radius:8px;padding:10px 12px;font-size:12px;color:var(--red);margin-bottom:14px"></div>
+    <div id="login-erro" style="display:none;border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:14px"></div>
     <div style="margin-bottom:12px">
       <div class="fl" style="margin-bottom:4px">E-mail</div>
       <input class="fi" type="email" id="login-email" placeholder="seu@email.com" style="width:100%;font-size:14px;padding:10px 12px" onkeydown="if(event.key==='Enter')document.getElementById('login-senha').focus()">
@@ -743,77 +743,18 @@ tr:hover td{background:var(--brand-light)}
 const SUPABASE_URL = 'https://bbrniodoxxsyhzbsegli.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJicm5pb2RveHhzeWh6YnNlZ2xpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNTc3NjYsImV4cCI6MjA5NDkzMzc2Nn0.9R6clBWQ_hlJzL3RGUoQfEHiHglhBYDM0JHHTLNB6nQ';
 // ── Supabase client sem biblioteca externa ──────────────
+// Simple Supabase REST client (no Auth SDK needed)
 const sb = {
   _url: SUPABASE_URL,
   _key: SUPABASE_KEY,
-  _session: null,
-
-  auth: {
-    async signInWithPassword({email, password}){
-      try {
-        const r = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=password',{
-          method:'POST',
-          headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},
-          body:JSON.stringify({email,password})
-        });
-        const d = await r.json();
-        if(!r.ok) return {data:null, error:{message: d.error_description||d.msg||d.error||'Erro desconhecido'}};
-        sb._session = d;
-        try{ localStorage.setItem('sb_session', JSON.stringify(d)); }catch(e){}
-        return {data:{user: d.user, session: d}, error: null};
-      } catch(e){ return {data:null, error:{message:'Erro de rede: '+e.message}}; }
-    },
-    async getSession(){
-      try {
-        const saved = localStorage.getItem('sb_session');
-        if(saved){
-          const s = JSON.parse(saved);
-          // Check if token expired
-          if(s.expires_at && Date.now()/1000 < s.expires_at - 60){
-            sb._session = s;
-            return {data:{session: s}, error:null};
-          }
-          // Try to refresh
-          if(s.refresh_token){
-            const r = await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token',{
-              method:'POST',
-              headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},
-              body:JSON.stringify({refresh_token: s.refresh_token})
-            });
-            if(r.ok){
-              const d = await r.json();
-              sb._session = d;
-              try{ localStorage.setItem('sb_session', JSON.stringify(d)); }catch(e){}
-              return {data:{session: d}, error:null};
-            }
-          }
-          localStorage.removeItem('sb_session');
-        }
-        return {data:{session:null}, error:null};
-      } catch(e){ return {data:{session:null}, error:null}; }
-    },
-    async signOut(){
-      try {
-        if(sb._session && sb._session.access_token){
-          await fetch(SUPABASE_URL+'/auth/v1/logout',{
-            method:'POST',
-            headers:{'Authorization':'Bearer '+sb._session.access_token,'apikey':SUPABASE_KEY}
-          });
-        }
-      } catch(e){}
-      sb._session = null;
-      try{ localStorage.removeItem('sb_session'); }catch(e){}
-      return {};
-    }
-  },
 
   from(table){
     const _t = table;
-    const _headers = () => {
-      const h = {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Prefer':'return=representation'};
-      if(sb._session && sb._session.access_token) h['Authorization'] = 'Bearer '+sb._session.access_token;
-      return h;
-    };
+    const _headers = () => ({
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_KEY,
+      'Prefer': 'return=representation'
+    });
     let _url = SUPABASE_URL+'/rest/v1/'+_t;
     let _filters = [];
     let _order = '';
@@ -908,7 +849,7 @@ const sb = {
     return obj;
   }
 };
-let USUARIO_ATUAL = null; // logged in user
+let USUARIO_ATUAL = null;r
 
 let ANIMAIS=[], PESAGENS=[], INSEMINACOES=[], PIQUETES=[], LOTES=[];
 let CATEGORIAS=[], SITUACOES=[];
@@ -1588,27 +1529,40 @@ document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{
 
 
 
-// ===== AUTENTICAÇÃO =====
+// ===== AUTENTICAÇÃO LOCAL =====
+// Usuários ficam na tabela configuracoes como chave "usuarios"
+// Formato: [{nome, email, senha_hash, ativo}]
+
 function toggleSenha(){
   const inp = document.getElementById('login-senha');
   inp.type = inp.type === 'password' ? 'text' : 'password';
 }
 
+// Simple hash function (not cryptographic, but sufficient for this use case)
+async function hashSenha(senha){
+  const encoder = new TextEncoder();
+  const data = encoder.encode(senha + 'agrocampos_salt_2026');
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
 async function verificarSessao(){
-  // Show login screen immediately while checking session
   mostrarLogin();
   try {
-    const resp = await sb.auth.getSession();
-    const session = resp && resp.data ? resp.data.session : null;
-    if(session && session.user){
-      USUARIO_ATUAL = session.user;
-      mostrarApp();
+    const saved = localStorage.getItem('agrocampos_session');
+    if(saved){
+      const s = JSON.parse(saved);
+      // Session valid for 8 hours
+      if(s.ts && Date.now() - s.ts < 8*60*60*1000){
+        USUARIO_ATUAL = s.user;
+        mostrarApp();
+        return;
+      }
+      localStorage.removeItem('agrocampos_session');
     }
-    // else stays on login screen
-  } catch(e) {
-    console.error('Erro ao verificar sessão:', e);
-    // stays on login screen
-  }
+  } catch(e){}
+  mostrarLogin();
 }
 
 function mostrarLogin(){
@@ -1616,10 +1570,10 @@ function mostrarLogin(){
   const ma = document.getElementById('main-app');
   const mn = document.getElementById('main-nav');
   const mc2 = document.getElementById('main-content');
-  if(ls) ls.style.cssText = ls.style.cssText.replace(/display:[^;]+/g,'') + ';display:flex';
-  if(ma) ma.style.display = 'none';
-  if(mn) mn.style.display = 'none';
-  if(mc2) mc2.style.display = 'none';
+  if(ls) ls.style.display='flex';
+  if(ma) ma.style.display='none';
+  if(mn) mn.style.display='none';
+  if(mc2) mc2.style.display='none';
 }
 
 function mostrarApp(){
@@ -1627,100 +1581,96 @@ function mostrarApp(){
   const ma=document.getElementById('main-app');
   const mn=document.getElementById('main-nav');
   const mc2=document.getElementById('main-content');
-  if(ls){ls.style.display='none';ls.style.visibility='hidden';}
-  if(ma){ma.style.display='flex';ma.style.visibility='visible';}
-  if(mn){mn.style.display='flex';mn.style.visibility='visible';}
-  if(mc2){mc2.style.display='block';mc2.style.visibility='visible';}
-  try{
-    const email=(USUARIO_ATUAL&&USUARIO_ATUAL.email)?USUARIO_ATUAL.email:'';
-    const el=document.getElementById('top-usuario');
-    if(el) el.textContent=email.split('@')[0]||'Usuário';
-  }catch(e){}
+  if(ls) ls.style.display='none';
+  if(ma){ ma.style.display='flex'; }
+  if(mn){ mn.style.display='flex'; }
+  if(mc2){ mc2.style.display='block'; }
+  const eu=document.getElementById('top-usuario');
+  if(eu && USUARIO_ATUAL) eu.textContent = USUARIO_ATUAL.nome || USUARIO_ATUAL.email;
   carregarTudo();
 }
 
 async function fazerLogin(){
-  const email = document.getElementById('login-email').value.trim();
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
   const senha = document.getElementById('login-senha').value;
   const btn = document.getElementById('btn-login');
   const erro = document.getElementById('login-erro');
-  const dbg = document.getElementById('login-debug');
 
-  function setErro(msg){ 
-    erro.style.display='block'; erro.style.background='#FDEDEC'; 
-    erro.style.color='#C62828'; erro.textContent=msg;
-  }
-  function setInfo(msg){ 
-    erro.style.display='block'; erro.style.background='#E3F2FD'; 
-    erro.style.color='#1565C0'; erro.textContent=msg;
-  }
-  function setOk(msg){ 
-    erro.style.display='block'; erro.style.background='#E8F5EE'; 
-    erro.style.color='#2E7D52'; erro.textContent=msg;
+  function setMsg(msg, bg, cor){
+    erro.style.display='block';
+    erro.style.background=bg;
+    erro.style.color=cor;
+    erro.textContent=msg;
   }
 
-  if(!email || !senha){ setErro('Preencha e-mail e senha.'); return; }
+  if(!email || !senha){ setMsg('Preencha e-mail e senha.','#FDEDEC','#C62828'); return; }
 
-  btn.disabled=true; btn.textContent='Entrando...';
-  setInfo('Conectando...');
-  if(dbg) dbg.textContent='';
+  btn.disabled=true;
+  btn.textContent='Entrando...';
+  setMsg('Verificando...','#E3F2FD','#1565C0');
 
   try {
-    const { data, error } = await sb.auth.signInWithPassword({email, password:senha});
-    
-    if(error){
-      const msg = error.message||'';
-      if(msg.includes('Invalid')||msg.includes('invalid_credentials')) setErro('E-mail ou senha incorretos.');
-      else if(msg.includes('not confirmed')) setErro('Conta não confirmada. Contate o administrador.');
-      else setErro('Erro: '+msg);
+    // Load users from DB
+    const {data: cfgData} = await sb.from('configuracoes').select('*');
+    const usuariosRow = (cfgData||[]).find(r=>r.chave==='usuarios');
+    let usuarios = [];
+    try { usuarios = usuariosRow ? JSON.parse(usuariosRow.valor) : []; } catch(e){}
+
+    // If no users configured, use default admin
+    if(!usuarios.length){
+      usuarios = [{nome:'Administrador', email:'lenz.adriano@gmail.com', senha_hash:'__default__', ativo:true}];
+    }
+
+    const user = usuarios.find(u => u.email.toLowerCase()===email && u.ativo!==false);
+    if(!user){
+      setMsg('E-mail não encontrado ou usuário inativo.','#FDEDEC','#C62828');
       btn.disabled=false; btn.textContent='Entrar';
       return;
     }
 
-    if(!data||!data.user){
-      setErro('Sem resposta do servidor. Tente novamente.');
+    // Check password
+    const hash = await hashSenha(senha);
+    let ok = false;
+    if(user.senha_hash === '__default__'){
+      // First access: any password works, then save it
+      ok = true;
+      user.senha_hash = hash;
+      // Save updated users
+      await sb.from('configuracoes').upsert({chave:'usuarios', valor:JSON.stringify(usuarios)});
+    } else {
+      ok = user.senha_hash === hash;
+    }
+
+    if(!ok){
+      setMsg('Senha incorreta.','#FDEDEC','#C62828');
       btn.disabled=false; btn.textContent='Entrar';
       return;
     }
 
-    setOk('Login OK! Abrindo sistema...');
-    USUARIO_ATUAL = data.user;
-    if(dbg) dbg.textContent='UID: '+data.user.id.substring(0,8)+'...';
-    
-    // Hide login screen first
-    const ls = document.getElementById('login-screen');
-    if(ls) ls.style.display='none';
-    
-    // Show app elements one by one
-    const ma = document.getElementById('main-app');
-    const mn = document.getElementById('main-nav');
-    const mc2 = document.getElementById('main-content');
-    if(ma){ ma.style.display='flex'; ma.style.visibility='visible'; }
-    if(mn){ mn.style.display='flex'; mn.style.visibility='visible'; }
-    if(mc2){ mc2.style.display='block'; mc2.style.visibility='visible'; }
-    
-    const eu = document.getElementById('top-usuario');
-    if(eu) eu.textContent = (data.user.email||'').split('@')[0];
-    
-    // Load data
-    try{ await registrarAudit('login','sistema',null,null); }catch(e){}
-    await carregarTudo();
+    // Save session
+    USUARIO_ATUAL = {id: user.email, email: user.email, nome: user.nome};
+    try {
+      localStorage.setItem('agrocampos_session', JSON.stringify({user: USUARIO_ATUAL, ts: Date.now()}));
+    } catch(e){}
 
-  } catch(e) {
-    setErro('Erro inesperado: '+e.message);
-    if(dbg) dbg.textContent='Stack: '+e.stack.substring(0,200);
+    setMsg('Bem-vindo, ' + user.nome + '!','#E8F5EE','#2E7D52');
+    try{ await registrarAudit('login','sistema',null,{usuario:user.email}); }catch(e){}
+    setTimeout(()=>mostrarApp(), 800);
+
+  } catch(e){
+    setMsg('Erro de conexão: ' + e.message,'#FDEDEC','#C62828');
     btn.disabled=false; btn.textContent='Entrar';
   }
 }
 
 async function fazerLogout(){
   if(!confirm('Deseja sair do sistema?')) return;
-  await registrarAudit('logout', 'sistema', null, null);
-  await sb.auth.signOut();
+  try{ await registrarAudit('logout','sistema',null,{usuario:USUARIO_ATUAL?.email}); }catch(e){}
   USUARIO_ATUAL = null;
+  try{ localStorage.removeItem('agrocampos_session'); }catch(e){}
   mostrarLogin();
-  document.getElementById('login-email').value = '';
-  document.getElementById('login-senha').value = '';
+  document.getElementById('login-email').value='';
+  document.getElementById('login-senha').value='';
 }
 
 // ===== AUDITORIA =====
@@ -1729,8 +1679,8 @@ async function registrarAudit(acao, tabela, registro_id, detalhes){
   try {
     await sb.from('audit_log').insert({
       id: 'aud_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-      usuario_email: USUARIO_ATUAL.email,
-      usuario_id: USUARIO_ATUAL.id,
+      usuario_email: USUARIO_ATUAL.email || USUARIO_ATUAL.id || 'desconhecido',
+      usuario_id: USUARIO_ATUAL.id || USUARIO_ATUAL.email || 'desconhecido',
       acao,
       tabela,
       registro_id: registro_id ? String(registro_id) : null,
