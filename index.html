@@ -177,6 +177,7 @@ tr:hover td{background:var(--brand-light)}
   <button class="nb" onclick="nav('genealogia',this)">&#9632; Genealogia</button>
   <button class="nb" onclick="nav('piquetes',this)">&#9632; Piquetes</button>
   <button class="nb" onclick="nav('lotes',this)">&#9632; Lotes</button>
+  <button class="nb" onclick="nav('lotes',this)">&#9632; Lotes</button>
   <button class="nb" onclick="nav('mapa',this)">&#9632; Mapa de Rebanho</button>
   <button class="nb" onclick="nav('historico',this)">&#9632; Histórico</button>
   <button class="nb" onclick="nav('manejos',this)">&#9632; Manejos</button>
@@ -287,6 +288,7 @@ tr:hover td{background:var(--brand-light)}
       <label><input type="checkbox" checked onchange="toggleCol('col-cat',this.checked)"> Categoria</label>
       <label><input type="checkbox" checked onchange="toggleCol('col-situacao',this.checked)"> Situação</label>
       <label><input type="checkbox" onchange="toggleCol('col-pai',this.checked)"> Pai</label>
+      <label><input type="checkbox" onchange="toggleCol('col-lote',this.checked)"> Lote</label>
       <label><input type="checkbox" onchange="toggleCol('col-mae',this.checked)"> Mãe</label>
       <label><input type="checkbox" checked onchange="toggleCol('col-lote',this.checked)"> Lote</label>
       <label><input type="checkbox" onchange="toggleCol('col-partos',this.checked)"> Partos</label>
@@ -307,6 +309,7 @@ tr:hover td{background:var(--brand-light)}
           <th class="col-situacao" onclick="sortAnimais('cat')">Situação <span class="sort-icon">⇅</span></th>
           <th class="col-lote" onclick="sortAnimais('lote')">Lote <span class="sort-icon">⇅</span></th>
           <th class="col-pai" style="display:none">Pai</th>
+          <th class="col-lote" style="display:none">Lote</th>
           <th class="col-mae" style="display:none">Mãe</th>
           <th class="col-partos" style="display:none" onclick="sortAnimais('partos')">Partos <span class="sort-icon">⇅</span></th>
           <th></th>
@@ -394,6 +397,62 @@ tr:hover td{background:var(--brand-light)}
     <!-- GRID DE LOTES -->
     <div id="grid-lotes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px">
       <div class="loading">Carregando lotes...</div>
+    </div>
+  </div>
+
+  <div id="sec-lotes" class="sec">
+    <div class="sec-header">
+      <span class="sec-title">Lotes</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="abrirModal('modal-lote')">+ Novo lote</button>
+        <button class="btn" onclick="exportarLotes()">&#8595; Exportar Excel</button>
+        <button class="btn" onclick="abrirImportarLote()">&#8593; Importar atribuição</button>
+      </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="sr">
+      <select id="filtro-lote-sel" onchange="renderLoteDetalhe()">
+        <option value="">— Selecione um lote para ver os animais —</option>
+      </select>
+      <select id="filtro-lote-status" onchange="renderLotes()">
+        <option value="">Ativos e inativos</option>
+        <option value="true">Somente ativos</option>
+        <option value="false">Somente inativos</option>
+      </select>
+      <input type="text" id="busca-lote" placeholder="Buscar lote..." oninput="renderLotes()" style="min-width:180px">
+    </div>
+
+    <!-- GRID DE LOTES -->
+    <div id="grid-lotes" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:16px"></div>
+
+    <!-- DETALHE DO LOTE SELECIONADO -->
+    <div id="detalhe-lote" style="display:none">
+      <div class="card">
+        <div class="ch">
+          <span class="ct" id="detalhe-lote-titulo">Animais do lote</span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn" onclick="exportarAnimaisLote()">&#8595; Exportar</button>
+            <button class="btn btn-danger" onclick="removerTodosDoLote()">Remover todos do lote</button>
+          </div>
+        </div>
+        <!-- Stats do lote -->
+        <div id="detalhe-lote-stats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+        <!-- Tabela de animais -->
+        <div class="tw">
+          <table><thead><tr>
+            <th><input type="checkbox" id="check-all-lote" onchange="toggleAllLote(this.checked)" title="Selecionar todos"></th>
+            <th>Brinco</th><th>Nome</th><th>Raça</th><th>Sexo</th>
+            <th>Idade</th><th>Peso</th><th>Piquete</th><th>Categoria</th><th>Situação</th>
+          </tr></thead>
+          <tbody id="tbody-lote-animais"></tbody>
+          </table>
+        </div>
+        <div id="lote-acoes-sel" style="display:none;margin-top:10px;padding:10px;background:var(--bg3);border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span id="lote-sel-count" style="font-size:12px;font-weight:600"></span>
+          <button class="btn btn-danger" onclick="removerSelecionadosDoLote()">Remover selecionados do lote</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -975,6 +1034,7 @@ function nav(id,btn){
   if(id==='inseminacoes'){preencherSelects();renderIns();}
   if(id==='piquetes')renderPiquetes();
   if(id==='lotes'){renderLotes();}
+  if(id==='lotes'){renderLotes();preencherSelectsLotes();}
   if(id==='mapa')renderMapa();
   if(id==='historico')renderHistorico();
   if(id==='manejos')renderManejosHist();
@@ -985,7 +1045,7 @@ function renderAll(){
   document.getElementById('top-info').textContent=
     new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'})+
     ' · '+ANIMAIS.length+' animais';
-  carregarEstacaoLocal();renderDash();renderAnimais();renderIns();renderPiquetes();preencherSelects();preencherFiltros();atualizarSelectsSituacao();if(document.getElementById("sec-lotes").classList.contains("active"))renderLotes();
+  carregarEstacaoLocal();renderDash();renderAnimais();renderIns();renderPiquetes();preencherSelects();preencherFiltros();atualizarSelectsSituacao();preencherSelectsLotes();if(document.getElementById("sec-lotes").classList.contains("active"))renderLotes();
 }
 
 // ===== ESTAÇÃO DE MONTA =====
@@ -1228,6 +1288,7 @@ function renderAnimais(){
       <td class="col-situacao"><span class="badge ${situBadge[a.cat]||'bgr'}">${a.cat||'—'}</span></td>
       <td class="col-lote"><span style="font-size:10px;color:var(--text2)">${a.lote||'—'}</span></td>
       <td class="col-pai" style="display:none">${a.pai||'—'}</td>
+      <td class="col-lote" style="display:none">${a.lote||'—'}</td>
       <td class="col-mae" style="display:none">${a.mae||'—'}</td>
       <td class="col-partos" style="display:none">${a.partos||0}</td>
       <td><button class="btn" style="padding:3px 8px;font-size:11px" onclick="abrirEditarAnimal('${a.id.replace(/'/g,"\\'")}')" title="Editar">&#9998;</button></td>
@@ -1677,6 +1738,358 @@ async function registrarAudit(acao, tabela, registro_id, detalhes){
       criado_em: new Date().toISOString(),
     });
   } catch(e){ console.log('Audit log error:', e); }
+}
+
+
+// ===== LOTES =====
+// loteEditandoId declared above
+
+function preencherSelectsLotes(){
+  const opts = '<option value="">Sem lote</option>' + LOTES.map(l=>`<option value="${l.id}">${l.nome}${l.ativo?'':' (inativo)'}</option>`).join('');
+  ['atrib-lote-sel'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
+
+  // Filter select
+  const fls = document.getElementById('filtro-lote-sel');
+  if(fls){
+    const v = fls.value;
+    fls.innerHTML = '<option value="">— Selecione um lote —</option>' + LOTES.map(l=>`<option value="${l.id}">${l.nome}${l.ativo?'':' (inativo)'}</option>`).join('');
+    if(v) fls.value = v;
+  }
+
+  // Piquete filter in atribuir
+  const ap = document.getElementById('atrib-piquete-fil');
+  if(ap) ap.innerHTML = '<option value="">Todos os piquetes</option>' + PIQUETES.map(p=>`<option>${p.nome}</option>`).join('');
+
+  // Cat filter
+  const ac = document.getElementById('atrib-cat-fil');
+  if(ac) ac.innerHTML = '<option value="">Todas as categorias</option>' + CATEGORIAS.map(c=>`<option>${c.nome}</option>`).join('');
+}
+
+function renderLotes(){
+  const q = (document.getElementById('busca-lote').value||'').toLowerCase();
+  const st = document.getElementById('filtro-lote-status').value;
+  const lista = LOTES.filter(l=>{
+    const matchQ = !q || l.nome.toLowerCase().includes(q);
+    const matchSt = !st || String(l.ativo) === st;
+    return matchQ && matchSt;
+  });
+
+  document.getElementById('grid-lotes').innerHTML = lista.length ? lista.map(l=>{
+    const n = ANIMAIS.filter(a=>a.lote===l.id).length;
+    const nF = ANIMAIS.filter(a=>a.lote===l.id&&a.sexo==='F').length;
+    const nM = ANIMAIS.filter(a=>a.lote===l.id&&a.sexo==='M').length;
+    return `<div class="card" style="cursor:pointer;border-left:4px solid ${l.ativo?'var(--brand)':'var(--border2)'}" onclick="selecionarLote('${l.id.replace(/'/g,"\'")}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div style="font-weight:700;font-size:13px;color:var(--text);line-height:1.3">${l.nome}</div>
+        <span class="badge ${l.ativo?'bg':'bgr'}" style="flex-shrink:0;margin-left:8px">${l.ativo?'Ativo':'Inativo'}</span>
+      </div>
+      ${l.descricao?`<div style="font-size:11px;color:var(--text2);margin-bottom:6px">${l.descricao}</div>`:''}
+      <div style="font-size:22px;font-weight:700;color:var(--text)">${n}</div>
+      <div style="font-size:11px;color:var(--text2)">${nF}F · ${nM}M</div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="btn" style="flex:1;justify-content:center;font-size:11px" onclick="event.stopPropagation();abrirAtribuirLote('${l.id.replace(/'/g,"\'")}')">+ Animais</button>
+        <button class="btn" style="font-size:11px;padding:6px 8px" onclick="event.stopPropagation();editarLote('${l.id.replace(/'/g,"\'")}')">&#9998;</button>
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty" style="padding:30px">Nenhum lote encontrado. Crie um novo lote.</div>';
+}
+
+function selecionarLote(id){
+  document.getElementById('filtro-lote-sel').value = id;
+  renderLoteDetalhe();
+  document.getElementById('detalhe-lote').scrollIntoView({behavior:'smooth'});
+}
+
+function renderLoteDetalhe(){
+  const id = document.getElementById('filtro-lote-sel').value;
+  if(!id){ document.getElementById('detalhe-lote').style.display='none'; return; }
+  const lote = LOTES.find(l=>l.id===id);
+  if(!lote){ document.getElementById('detalhe-lote').style.display='none'; return; }
+  document.getElementById('detalhe-lote').style.display='block';
+  document.getElementById('detalhe-lote-titulo').textContent = lote.nome;
+
+  const animais = ANIMAIS.filter(a=>a.lote===id);
+  const nF = animais.filter(a=>a.sexo==='F').length;
+  const nM = animais.filter(a=>a.sexo==='M').length;
+  const pesos = animais.map(a=>calcPesoAtual(a.id)).filter(Boolean);
+  const pmedio = pesos.length ? Math.round(pesos.reduce((s,v)=>s+v,0)/pesos.length) : null;
+
+  document.getElementById('detalhe-lote-stats').innerHTML = `
+    <div class="mc" style="flex:1;min-width:100px"><div class="mc-l">Total</div><div class="mc-v">${animais.length}</div></div>
+    <div class="mc" style="flex:1;min-width:100px"><div class="mc-l">Fêmeas</div><div class="mc-v">${nF}</div></div>
+    <div class="mc" style="flex:1;min-width:100px"><div class="mc-l">Machos</div><div class="mc-v">${nM}</div></div>
+    ${pmedio?`<div class="mc" style="flex:1;min-width:100px"><div class="mc-l">Peso médio</div><div class="mc-v">${pmedio} kg</div></div>`:''}
+  `;
+
+  const catBadgeL = catBadge;
+  document.getElementById('tbody-lote-animais').innerHTML = animais.length ? animais.map(a=>{
+    const peso = calcPesoAtual(a.id);
+    const cat = categoriaAuto(a);
+    return `<tr>
+      <td><input type="checkbox" class="check-lote-animal" value="${a.id}" onchange="atualizarSelLote()"></td>
+      <td><strong>${a.id}</strong></td>
+      <td>${a.nome||'—'}</td>
+      <td>${a.raca||'—'}</td>
+      <td>${a.sexo==='F'?'F':'M'}</td>
+      <td>${calcIdade(a.nasc)}</td>
+      <td>${peso?peso+' kg':'—'}</td>
+      <td><span class="badge bb">${a.piquete||'—'}</span></td>
+      <td><span class="badge ${catBadgeL[cat]||'bgr'}">${cat}</span></td>
+      <td>${a.cat||'—'}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="10" class="empty">Nenhum animal neste lote.</td></tr>';
+
+  document.getElementById('lote-acoes-sel').style.display = 'none';
+  document.getElementById('check-all-lote').checked = false;
+}
+
+function atualizarSelLote(){
+  const checks = document.querySelectorAll('.check-lote-animal:checked');
+  const acoes = document.getElementById('lote-acoes-sel');
+  if(checks.length > 0){
+    acoes.style.display = 'flex';
+    document.getElementById('lote-sel-count').textContent = `${checks.length} animal(is) selecionado(s)`;
+  } else {
+    acoes.style.display = 'none';
+  }
+}
+
+function toggleAllLote(checked){
+  document.querySelectorAll('.check-lote-animal').forEach(cb=>cb.checked=checked);
+  atualizarSelLote();
+}
+
+async function removerSelecionadosDoLote(){
+  const ids = [...document.querySelectorAll('.check-lote-animal:checked')].map(cb=>cb.value);
+  if(!ids.length) return;
+  if(!confirm(`Remover ${ids.length} animal(is) do lote?`)) return;
+  for(const id of ids){
+    await sb.from('animais').update({lote:null}).eq('id',id);
+  }
+  await registrarAudit('remover_animais_lote','lotes',document.getElementById('filtro-lote-sel').value,{quantidade:ids.length});
+  await carregarTudo();
+  renderLoteDetalhe();
+}
+
+async function removerTodosDoLote(){
+  const id = document.getElementById('filtro-lote-sel').value;
+  const n = ANIMAIS.filter(a=>a.lote===id).length;
+  if(!n){alert('Nenhum animal neste lote.');return;}
+  if(!confirm(`Remover todos os ${n} animais deste lote?`)) return;
+  await sb.from('animais').update({lote:null}).eq('lote',id);
+  await registrarAudit('remover_todos_lote','lotes',id,{quantidade:n});
+  await carregarTudo();
+  renderLoteDetalhe();
+}
+
+// ── CRIAR / EDITAR LOTE ──
+function resetFormLote(){
+  loteEditandoId = null;
+  document.getElementById('fl-nome').value='';
+  document.getElementById('fl-desc').value='';
+  document.getElementById('fl-ativo').value='true';
+  document.getElementById('modal-lote-titulo').textContent='Novo lote';
+}
+
+function editarLote(id){
+  const l = LOTES.find(x=>x.id===id);
+  if(!l) return;
+  loteEditandoId = id;
+  document.getElementById('fl-nome').value = l.nome;
+  document.getElementById('fl-desc').value = l.descricao||'';
+  document.getElementById('fl-ativo').value = String(l.ativo);
+  document.getElementById('modal-lote-titulo').textContent = 'Editar lote — ' + l.nome;
+  abrirModal('modal-lote');
+}
+
+async function salvarLote(){
+  const nome = document.getElementById('fl-nome').value.trim();
+  if(!nome){alert('Nome é obrigatório.');return;}
+  const ativo = document.getElementById('fl-ativo').value === 'true';
+  const desc = document.getElementById('fl-desc').value.trim()||null;
+
+  if(loteEditandoId){
+    const {error} = await sb.from('lotes').update({nome,descricao:desc,ativo}).eq('id',loteEditandoId);
+    if(error){alert('Erro: '+error.message);return;}
+    await registrarAudit('edicao_lote','lotes',loteEditandoId,{nome});
+  } else {
+    const id = 'lot_' + Date.now();
+    const {error} = await sb.from('lotes').insert({id,nome,descricao:desc,ativo});
+    if(error){alert('Erro: '+error.message);return;}
+    await registrarAudit('criacao_lote','lotes',id,{nome});
+  }
+  fecharModal('modal-lote');
+  resetFormLote();
+  await carregarTudo();
+  renderLotes();
+}
+
+// ── ATRIBUIR ANIMAIS ──
+function abrirAtribuirLote(loteId){
+  preencherSelectsLotes();
+  if(loteId) document.getElementById('atrib-lote-sel').value = loteId;
+  document.getElementById('atrib-busca').value = '';
+  document.getElementById('atrib-piquete-fil').value = '';
+  document.getElementById('atrib-cat-fil').value = '';
+  renderAtribuirLista();
+  document.getElementById('modal-atribuir-lote').style.display = 'flex';
+}
+
+function renderAtribuirLista(){
+  const piq = document.getElementById('atrib-piquete-fil').value;
+  const cat = document.getElementById('atrib-cat-fil').value;
+  const q = (document.getElementById('atrib-busca').value||'').toLowerCase();
+  const lista = ANIMAIS.filter(a=>{
+    const piqOk = !piq || a.piquete === piq;
+    const catOk = !cat || categoriaAuto(a) === cat;
+    const qOk = !q || (a.id+(a.nome||'')).toLowerCase().includes(q);
+    return piqOk && catOk && qOk;
+  });
+
+  const loteAtual = (id) => {
+    const l = LOTES.find(x=>x.id===id);
+    return l ? l.nome : '—';
+  };
+
+  document.getElementById('tbody-atribuir-lote').innerHTML = lista.slice(0,200).map(a=>`
+    <tr>
+      <td style="padding:5px 8px;text-align:center"><input type="checkbox" class="check-atrib" value="${a.id}"></td>
+      <td style="padding:5px 8px"><strong>${a.id}</strong></td>
+      <td style="padding:5px 8px">${a.nome||'—'}</td>
+      <td style="padding:5px 8px">${a.piquete||'—'}</td>
+      <td style="padding:5px 8px;font-size:11px;color:${a.lote?'var(--amber)':'var(--text3)'}">${a.lote?loteAtual(a.lote):'Sem lote'}</td>
+    </tr>`).join('');
+
+  const total = lista.length;
+  document.getElementById('atrib-sel-count').textContent = total > 200 ? `Mostrando 200 de ${total}` : `${total} animais`;
+}
+
+function toggleAtribuirAll(checked){
+  document.querySelectorAll('.check-atrib').forEach(cb=>cb.checked=checked);
+  const n = document.querySelectorAll('.check-atrib:checked').length;
+  document.getElementById('atrib-sel-count').textContent = `${n} selecionados`;
+}
+
+async function confirmarAtribuicaoLote(){
+  const loteId = document.getElementById('atrib-lote-sel').value;
+  if(!loteId){alert('Selecione um lote.');return;}
+  const ids = [...document.querySelectorAll('.check-atrib:checked')].map(cb=>cb.value);
+  if(!ids.length){alert('Selecione pelo menos um animal.');return;}
+  const lote = LOTES.find(l=>l.id===loteId);
+  if(!confirm(`Atribuir ${ids.length} animal(is) ao lote "${lote?.nome}"?`)) return;
+
+  // Batch update
+  for(const id of ids){
+    await sb.from('animais').update({lote:loteId}).eq('id',id);
+  }
+  await registrarAudit('atribuir_lote','lotes',loteId,{quantidade:ids.length});
+  fecharModal('modal-atribuir-lote');
+  await carregarTudo();
+  renderLotes();
+  // Refresh detalhe if same lote selected
+  if(document.getElementById('filtro-lote-sel').value === loteId) renderLoteDetalhe();
+  alert(`✓ ${ids.length} animal(is) atribuídos ao lote "${lote?.nome}"`);
+}
+
+// ── EXPORTAR ──
+function exportarLotes(){
+  const dados = LOTES.map(l=>{
+    const animais = ANIMAIS.filter(a=>a.lote===l.id);
+    return {
+      'Lote': l.nome, 'Descrição': l.descricao||'',
+      'Status': l.ativo?'Ativo':'Inativo',
+      'Total animais': animais.length,
+      'Fêmeas': animais.filter(a=>a.sexo==='F').length,
+      'Machos': animais.filter(a=>a.sexo==='M').length,
+    };
+  });
+  exportarCSV(dados, 'lotes_agrocampos.csv');
+}
+
+function exportarAnimaisLote(){
+  const id = document.getElementById('filtro-lote-sel').value;
+  const lote = LOTES.find(l=>l.id===id);
+  const animais = ANIMAIS.filter(a=>a.lote===id);
+  const dados = animais.map(a=>({
+    'Brinco': a.id, 'Nome': a.nome||'', 'Raça': a.raca||'',
+    'Sexo': a.sexo==='F'?'Fêmea':'Macho',
+    'Nascimento': a.nasc||'', 'Idade': calcIdade(a.nasc),
+    'Peso (kg)': calcPesoAtual(a.id)||'',
+    'Piquete': a.piquete||'',
+    'Categoria': categoriaAuto(a), 'Situação': a.cat||'',
+    'Lote': lote?.nome||'',
+  }));
+  exportarCSV(dados, `animais_lote_${(lote?.nome||'lote').replace(/[^a-z0-9]/gi,'_')}.csv`);
+}
+
+// ── IMPORTAR ATRIBUIÇÃO VIA CSV ──
+function abrirImportarLote(){
+  document.getElementById('lote-imp-arquivo').value='';
+  document.getElementById('lote-imp-preview').textContent='';
+  document.getElementById('btn-exec-imp-lote').disabled=true;
+  loteCSVData=[];
+  document.getElementById('modal-importar-lote').style.display='flex';
+}
+
+function baixarModeloLote(){
+  const bom='﻿';
+  const linhas=['Brinco;Lote','113;IATF VACAS PARIDAS JAN/26','123;MULTIPARAS PRENHAS DG 22/01/26'];
+  const blob=new Blob([bom+linhas.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='modelo_atribuicao_lote.csv';a.click();
+}
+
+function previewImportarLote(){
+  const file=document.getElementById('lote-imp-arquivo').files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const text=e.target.result.replace(/^﻿/,'');
+    const linhas=text.split(/\r?\n/).filter(l=>l.trim());
+    const sep=linhas[0].includes(';')?';':',';
+    const header=linhas[0].split(sep).map(h=>h.trim().toLowerCase());
+    loteCSVData=linhas.slice(1).map(l=>{
+      const vals=l.split(sep).map(v=>v.trim().replace(/^"|"$/g,''));
+      const obj={};header.forEach((h,i)=>obj[h]=vals[i]||'');
+      return obj;
+    }).filter(r=>r['brinco']||r['id']);
+    document.getElementById('lote-imp-preview').innerHTML=
+      `<span style="color:var(--green);font-weight:600">✓ ${loteCSVData.length} registros encontrados</span>`;
+    document.getElementById('btn-exec-imp-lote').disabled=false;
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+async function executarImportarLote(){
+  let ok=0; const erros=[];
+  // Build lote name -> id map
+  const loteMap={};
+  LOTES.forEach(l=>{ loteMap[l.nome.toLowerCase().trim()]=l.id; });
+
+  for(const row of loteCSVData){
+    const brinco=(row['brinco']||row['id animal']||'').trim();
+    const loteNome=(row['lote']||'').trim();
+    if(!brinco||!loteNome){erros.push({linha:brinco||'?',erro:'Brinco ou lote vazio'});continue;}
+    const animal=ANIMAIS.find(a=>a.id===brinco);
+    if(!animal){erros.push({linha:brinco,erro:'Animal não encontrado no plantel'});continue;}
+    const loteId=loteMap[loteNome.toLowerCase()];
+    if(!loteId){erros.push({linha:brinco,erro:`Lote "${loteNome}" não encontrado. Crie o lote primeiro.`});continue;}
+    const {error}=await sb.from('animais').update({lote:loteId}).eq('id',brinco);
+    if(error){erros.push({linha:brinco,erro:error.message});continue;}
+    ok++;
+  }
+  await registrarAudit('importar_lote','lotes',null,{ok,erros:erros.length});
+  await carregarTudo();
+  renderLotes();
+  const res=`<div style="margin-top:8px">
+    <span style="color:var(--green);font-weight:700">✓ ${ok} atribuições realizadas</span>
+    ${erros.length?`<span style="color:var(--red);margin-left:10px">❌ ${erros.length} erro(s)</span>`:''}
+    ${erros.length?'<table style="margin-top:8px;font-size:11px;width:100%;border-collapse:collapse">'+
+      erros.map(e=>`<tr><td style="padding:3px 6px;border-bottom:1px solid var(--bg3);font-weight:600">${e.linha}</td><td style="padding:3px 6px;border-bottom:1px solid var(--bg3);color:var(--red)">${e.erro}</td></tr>`).join('')+
+      '</table>':''}
+  </div>`;
+  document.getElementById('lote-imp-preview').innerHTML=res;
+  if(!erros.length) setTimeout(()=>fecharModal('modal-importar-lote'),2000);
 }
 
 // ===== MANEJOS EM LOTE =====
@@ -2708,6 +3121,8 @@ function abrirEditarAnimal(id) {
   document.getElementById('ea-pai').value = a.pai || '';
   document.getElementById('ea-mae').value = a.mae || '';
   document.getElementById('ea-partos').value = a.partos || 0;
+  const eaLote = document.getElementById('ea-lote');
+  eaLote.innerHTML = '<option value="">Sem lote</option>' + LOTES.map(l=>`<option value="${l.id}"${a.lote===l.id?' selected':''}>${l.nome}</option>`).join('');
   document.getElementById('ea-obs').value = a.obs || '';
   // Preencher piquetes
   const sel = document.getElementById('ea-piquete');
@@ -2728,6 +3143,7 @@ async function salvarEdicaoAnimal() {
     pai: document.getElementById('ea-pai').value.trim() || null,
     mae: document.getElementById('ea-mae').value.trim() || null,
     partos: parseInt(document.getElementById('ea-partos').value)||0,
+    lote: document.getElementById('ea-lote').value || null,
   };
   const { error } = await sb.from('animais').update(updates).eq('id', id);
   if (error) { alert('Erro ao salvar: ' + error.message); return; }
@@ -2945,6 +3361,7 @@ function sortAnimais(field) {
       <td class="col-situacao"><span class="badge ${situBadge[a.cat]||'bgr'}">${a.cat||'—'}</span></td>
       <td class="col-lote"><span style="font-size:10px;color:var(--text2)">${a.lote||'—'}</span></td>
       <td class="col-pai" style="display:none">${a.pai||'—'}</td>
+      <td class="col-lote" style="display:none">${a.lote||'—'}</td>
       <td class="col-mae" style="display:none">${a.mae||'—'}</td>
       <td class="col-partos" style="display:none">${a.partos||0}</td>
       <td><button class="btn" style="padding:3px 8px;font-size:11px" onclick="abrirEditarAnimal('${a.id.replace(/'/g,"\\'")}')">&#9998;</button></td>
@@ -3105,6 +3522,10 @@ verificarSessao();
       <div><div class="fl">Mãe (brinco)</div><input class="fi" id="ea-mae"></div>
     </div>
     <div class="fg">
+      <div><div class="fl">Lote</div><select class="fi" id="ea-lote"><option value="">Sem lote</option></select></div>
+      <div></div>
+    </div>
+    <div class="fg">
       <div><div class="fl">Qtd. de partos</div><input class="fi" type="number" id="ea-partos" min="0" placeholder="0"></div>
       <div><div class="fl">Observação</div><input class="fi" id="ea-obs" placeholder="opcional"></div>
     </div>
@@ -3254,6 +3675,110 @@ verificarSessao();
     <div class="modal-btns">
       <button class="btn btn-s" onclick="confirmarAdicionarAoLote()">&#10003; Adicionar selecionados</button>
       <button class="btn" onclick="fecharModal('modal-add-lote')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL NOVO/EDITAR LOTE -->
+<div id="modal-lote" class="overlay" style="display:none">
+  <div class="modal">
+    <h3 id="modal-lote-titulo">Novo lote</h3>
+    <div class="fg full">
+      <div><div class="fl">Nome do lote *</div>
+        <input class="fi" id="fl-nome" placeholder="ex: IATF VACAS PARIDAS JAN/26">
+      </div>
+    </div>
+    <div class="fg full">
+      <div><div class="fl">Descrição</div>
+        <input class="fi" id="fl-desc" placeholder="opcional">
+      </div>
+    </div>
+    <div class="fg">
+      <div><div class="fl">Status</div>
+        <select class="fi" id="fl-ativo">
+          <option value="true">Ativo</option>
+          <option value="false">Inativo</option>
+        </select>
+      </div>
+      <div></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-s" onclick="salvarLote()">&#10003; Salvar</button>
+      <button class="btn" onclick="fecharModal('modal-lote');resetFormLote()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ATRIBUIR ANIMAIS AO LOTE -->
+<div id="modal-atribuir-lote" class="overlay" style="display:none">
+  <div class="modal" style="max-width:560px">
+    <h3>Atribuir animais ao lote</h3>
+    <div class="fg">
+      <div><div class="fl">Lote destino *</div>
+        <select class="fi" id="atrib-lote-sel"></select>
+      </div>
+      <div><div class="fl">Filtrar por piquete</div>
+        <select class="fi" id="atrib-piquete-fil" onchange="renderAtribuirLista()">
+          <option value="">Todos os piquetes</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg">
+      <div><div class="fl">Filtrar por categoria</div>
+        <select class="fi" id="atrib-cat-fil" onchange="renderAtribuirLista()">
+          <option value="">Todas as categorias</option>
+        </select>
+      </div>
+      <div><div class="fl">Buscar brinco/nome</div>
+        <input class="fi" id="atrib-busca" placeholder="ex: 113" oninput="renderAtribuirLista()">
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:8px">
+      <input type="checkbox" id="atrib-check-all" onchange="toggleAtribuirAll(this.checked)"> 
+      <label for="atrib-check-all" style="cursor:pointer"> Selecionar todos visíveis</label>
+      <span id="atrib-sel-count" style="margin-left:10px;font-weight:600"></span>
+    </div>
+    <div style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <thead><tr style="background:var(--bg3);position:sticky;top:0">
+          <th style="padding:6px 8px;width:30px"></th>
+          <th style="padding:6px 8px;text-align:left">Brinco</th>
+          <th style="padding:6px 8px;text-align:left">Nome</th>
+          <th style="padding:6px 8px;text-align:left">Piquete</th>
+          <th style="padding:6px 8px;text-align:left">Lote atual</th>
+        </tr></thead>
+        <tbody id="tbody-atribuir-lote"></tbody>
+      </table>
+    </div>
+    <div class="modal-btns" style="margin-top:14px">
+      <button class="btn btn-s" onclick="confirmarAtribuicaoLote()">&#10003; Atribuir ao lote</button>
+      <button class="btn" onclick="fecharModal('modal-atribuir-lote')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL IMPORTAR ATRIBUIÇÃO DE LOTE -->
+<div id="modal-importar-lote" class="overlay" style="display:none">
+  <div class="modal">
+    <h3>Importar atribuição de lote via planilha</h3>
+    <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.7">
+      <strong>Formato esperado:</strong> CSV com colunas <strong>Brinco</strong> e <strong>Lote</strong><br>
+      O lote informado deve ser exatamente igual ao nome cadastrado no sistema.<br>
+      Se o animal já estiver em outro lote, será transferido automaticamente.
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="btn" onclick="baixarModeloLote()">&#8595; Baixar modelo CSV</button>
+    </div>
+    <div class="fg full">
+      <div><div class="fl">Arquivo CSV *</div>
+        <input type="file" accept=".csv" id="lote-imp-arquivo" class="fi" style="padding:6px" onchange="previewImportarLote()">
+      </div>
+    </div>
+    <div id="lote-imp-preview" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+    <div class="modal-btns">
+      <button class="btn btn-s" id="btn-exec-imp-lote" onclick="executarImportarLote()" disabled>&#8593; Importar</button>
+      <button class="btn" onclick="fecharModal('modal-importar-lote')">Cancelar</button>
     </div>
   </div>
 </div>
