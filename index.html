@@ -670,25 +670,35 @@ tr:hover td{background:var(--brand-light)}
 
   <div id="sec-historico" class="sec">
     <div class="sec-header">
-      <span class="sec-title">Histórico — Saídas do plantel</span>
-      <button class="btn" onclick="exportarHistorico()">&#8595; Exportar Excel</button>
+      <span class="sec-title">Histórico de atividades</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="exportarHistoricoCompleto()">&#8595; Exportar Excel</button>
+        <button class="btn" onclick="abrirLixeira()">&#128465; Lixeira</button>
+      </div>
     </div>
     <div class="sr">
       <select id="hist-filtro-tipo" onchange="renderHistorico()">
-        <option value="">Vendas e Mortes</option>
-        <option value="Venda">Somente Vendas</option>
-        <option value="Morte">Somente Mortes</option>
+        <option value="">Todas as atividades</option>
+        <option value="Pesagem">Pesagens</option>
+        <option value="Inseminação">Inseminações</option>
+        <option value="Sanitário">Manejos sanitários</option>
+        <option value="Venda">Vendas</option>
+        <option value="Morte">Mortes</option>
       </select>
-      <input type="text" id="hist-busca" placeholder="Buscar por brinco ou nome..." oninput="renderHistorico()" style="min-width:200px">
+      <input type="date" id="hist-de" onchange="renderHistorico()" title="Data inicial">
+      <input type="date" id="hist-ate" onchange="renderHistorico()" title="Data final">
+      <input type="text" id="hist-busca" placeholder="Buscar brinco, nome, medicamento..." oninput="renderHistorico()" style="min-width:200px">
     </div>
     <div class="card">
+      <div class="ch">
+        <span class="ct">Atividades registradas</span>
+        <span id="hist-resumo" style="font-size:12px;color:var(--text2)"></span>
+      </div>
       <div class="tw">
         <table><thead><tr>
-          <th>Data</th><th>Tipo</th><th>Brinco</th><th>Nome</th><th>Raça</th><th>Sexo</th>
-          <th>Idade na saída</th><th>Peso</th><th>Piquete</th>
-          <th>Destino / Causa</th><th>Valor (R$)</th><th>Obs</th>
+          <th>Data</th><th>Atividade</th><th>Brinco</th><th>Detalhes</th><th>Valor (R$)</th><th>Ações</th>
         </tr></thead>
-        <tbody id="tbody-historico"><tr><td colspan="12" class="loading">Carregando...</td></tr></tbody>
+        <tbody id="tbody-historico"><tr><td colspan="6" class="loading">Carregando...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -910,6 +920,8 @@ async function carregarTudo(){
     const ms = await sb.from('manejos_sanitarios').select('*').order('data',{ascending:false});
     MANEJOS_SANITARIOS = ms.data||[];
   } catch(e){ MANEJOS_SANITARIOS=[]; }
+  // Limpeza automática da lixeira (>30 dias)
+  try{ limparLixeiraAntiga(); }catch(e){}
   // Load historico (if table exists)
   try {
     const hist = await sb.from('historico').select('*').order('data',{ascending:false});
@@ -2413,6 +2425,156 @@ async function confirmarDesmameRenum(){
 
 
 
+
+// ===== HISTÓRICO UNIFICADO — EDIÇÃO, EXCLUSÃO E LIXEIRA =====
+
+// Move um registro para a lixeira e exclui da origem
+async function moverParaLixeira(origem, registro, descricao){
+  const lix = {
+    id: 'lix_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+    tipo_registro: origem,
+    tabela_origem: origem,
+    dados_json: JSON.stringify(registro),
+    descricao: descricao||'',
+    excluido_por: (USUARIO_ATUAL && (USUARIO_ATUAL.nome||USUARIO_ATUAL.email))||'desconhecido',
+    excluido_em: new Date().toISOString(),
+  };
+  await sb.from('lixeira').insert(lix);
+}
+
+async function excluirAtividade(regEnc){
+  let info;
+  try { info = JSON.parse(decodeURIComponent(regEnc)); } catch(e){ return; }
+  const {origem, id} = info;
+
+  // Localiza o registro completo
+  let registro = null;
+  if(origem==='historico') registro = HISTORICO.find(h=>h.id===id);
+  else if(origem==='pesagens') registro = PESAGENS.find(p=>p.id===id);
+  else if(origem==='inseminacoes') registro = INSEMINACOES.find(i=>i.id===id);
+  else if(origem==='manejos_sanitarios') registro = MANEJOS_SANITARIOS.find(m=>m.id===id);
+  if(!registro){ alert('Registro não encontrado.'); return; }
+
+  const labelTipo = {historico:'venda/morte', pesagens:'pesagem', inseminacoes:'inseminação', manejos_sanitarios:'manejo sanitário'}[origem];
+  if(!confirm(`Excluir esta ${labelTipo}? Ela irá para a lixeira e poderá ser restaurada por até 30 dias.`)) return;
+
+  const desc = `${labelTipo} — brinco ${registro.animal_id||registro.femea||'?'} — ${fmtData(registro.data)}`;
+  await moverParaLixeira(origem, registro, desc);
+  await sb.from(origem).delete().eq('id', id);
+  await registrarAudit('exclusao_'+origem, origem, id, {descricao:desc});
+  await carregarTudo();
+  renderHistorico();
+}
+
+// Editar venda/morte
+let atividadeEditandoId = null;
+function editarAtividade(regEnc){
+  let info;
+  try { info = JSON.parse(decodeURIComponent(regEnc)); } catch(e){ return; }
+  if(info.origem !== 'historico'){ alert('Apenas vendas e mortes podem ser editadas aqui. Para os demais, exclua e registre novamente.'); return; }
+  const h = HISTORICO.find(x=>x.id===info.id);
+  if(!h){ alert('Registro não encontrado.'); return; }
+  atividadeEditandoId = h.id;
+  document.getElementById('edit-hist-tipo').value = h.tipo;
+  document.getElementById('edit-hist-data').value = h.data||'';
+  document.getElementById('edit-hist-destino').value = h.destino||'';
+  document.getElementById('edit-hist-peso').value = h.peso||'';
+  document.getElementById('edit-hist-valor').value = h.valor||'';
+  document.getElementById('edit-hist-obs').value = h.obs||'';
+  document.getElementById('edit-hist-titulo').textContent = `Editar ${h.tipo} — brinco ${h.animal_id}`;
+  document.getElementById('edit-hist-label-destino').textContent = h.tipo==='Venda'?'Destino / Comprador':'Causa da morte';
+  document.getElementById('modal-editar-hist').style.display='flex';
+}
+
+async function salvarEdicaoAtividade(){
+  if(!atividadeEditandoId) return;
+  const updates = {
+    tipo: document.getElementById('edit-hist-tipo').value,
+    data: normalizarData(document.getElementById('edit-hist-data').value),
+    destino: document.getElementById('edit-hist-destino').value.trim()||null,
+    peso: parseFloat(document.getElementById('edit-hist-peso').value)||null,
+    valor: parseFloat(document.getElementById('edit-hist-valor').value)||null,
+    obs: document.getElementById('edit-hist-obs').value.trim()||null,
+  };
+  const {error} = await sb.from('historico').update(updates).eq('id', atividadeEditandoId);
+  if(error){ alert('Erro ao salvar: '+error.message); return; }
+  await registrarAudit('edicao_historico','historico',atividadeEditandoId,updates);
+  fecharModal('modal-editar-hist');
+  await carregarTudo();
+  renderHistorico();
+}
+
+// ===== LIXEIRA =====
+async function abrirLixeira(){
+  await limparLixeiraAntiga();
+  await renderLixeira();
+  document.getElementById('modal-lixeira').style.display='flex';
+}
+
+async function renderLixeira(){
+  const {data} = await sb.from('lixeira').select('*').order('excluido_em',{ascending:false});
+  const itens = data||[];
+  const tipoLabel = {historico:'Venda/Morte', pesagens:'Pesagem', inseminacoes:'Inseminação', manejos_sanitarios:'Manejo sanitário'};
+  document.getElementById('tbody-lixeira').innerHTML = itens.length ? itens.map(it=>{
+    const dt = new Date(it.excluido_em);
+    const dtStr = dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const diasRestantes = 30 - Math.floor((Date.now()-dt.getTime())/86400000);
+    return `<tr>
+      <td style="font-size:11px;white-space:nowrap">${dtStr}</td>
+      <td><span class="badge bgr">${tipoLabel[it.tabela_origem]||it.tabela_origem}</span></td>
+      <td style="font-size:12px">${it.descricao||'—'}</td>
+      <td style="font-size:11px">${it.excluido_por||'—'}</td>
+      <td style="font-size:11px;color:${diasRestantes<=5?'var(--red)':'var(--text2)'}">${diasRestantes}d</td>
+      <td><button class="btn btn-s" style="font-size:11px;padding:3px 8px" onclick="restaurarItem('${it.id}')">&#8635; Restaurar</button></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty">Lixeira vazia.</td></tr>';
+  document.getElementById('lixeira-resumo').textContent = `${itens.length} item(ns) · removidos automaticamente após 30 dias`;
+}
+
+async function restaurarItem(lixId){
+  const {data} = await sb.from('lixeira').select('*').eq('id', lixId);
+  const item = (data||[])[0];
+  if(!item){ alert('Item não encontrado.'); return; }
+  let registro;
+  try { registro = JSON.parse(item.dados_json); } catch(e){ alert('Dados corrompidos.'); return; }
+
+  if(!confirm(`Restaurar "${item.descricao}"?`)) return;
+
+  // Reinsere na tabela de origem
+  const {error} = await sb.from(item.tabela_origem).insert(registro);
+  if(error){ alert('Erro ao restaurar: '+error.message); return; }
+  // Remove da lixeira
+  await sb.from('lixeira').delete().eq('id', lixId);
+  await registrarAudit('restauracao','lixeira',lixId,{descricao:item.descricao});
+  await carregarTudo();
+  await renderLixeira();
+  renderHistorico();
+  alert('✓ Item restaurado com sucesso!');
+}
+
+async function limparLixeiraAntiga(){
+  try {
+    const {data} = await sb.from('lixeira').select('*');
+    const limite = Date.now() - 30*86400000;
+    for(const it of (data||[])){
+      if(new Date(it.excluido_em).getTime() < limite){
+        await sb.from('lixeira').delete().eq('id', it.id);
+      }
+    }
+  } catch(e){}
+}
+
+function exportarHistoricoCompleto(){
+  const dados = [];
+  HISTORICO.forEach(h=>dados.push({Data:fmtData(h.data),Atividade:h.tipo,Brinco:h.animal_id,Detalhes:(h.destino||''),Valor:h.valor||''}));
+  PESAGENS.forEach(p=>dados.push({Data:fmtData(p.data),Atividade:'Pesagem',Brinco:p.animal_id,Detalhes:(p.peso?p.peso+' kg':''),Valor:''}));
+  INSEMINACOES.forEach(i=>dados.push({Data:fmtData(i.data),Atividade:'Inseminação',Brinco:i.femea,Detalhes:(i.touro||'')+' '+(i.resultado||''),Valor:''}));
+  MANEJOS_SANITARIOS.forEach(m=>dados.push({Data:fmtData(m.data),Atividade:m.nome_manejo,Brinco:m.animal_id,Detalhes:(m.medicamento||''),Valor:''}));
+  dados.sort((a,b)=>(b.Data||'').localeCompare(a.Data||''));
+  exportarCSV(dados, 'historico_atividades.csv');
+}
+
+
 // ===== GERENCIAR PESAGENS POR DATA =====
 function abrirGerenciarPesagens(){
   renderGerenciarPesagens();
@@ -2452,6 +2614,7 @@ async function excluirPesagensData(data){
 
   let ok=0;
   for(const p of grupo){
+    await moverParaLixeira('pesagens', p, `pesagem — brinco ${p.animal_id} — ${fmtData(p.data)} — ${p.peso}kg`);
     const {error} = await sb.from('pesagens').delete().eq('id', p.id);
     if(!error) ok++;
   }
@@ -2712,8 +2875,9 @@ function verEventoSan(eventoId){
 async function excluirEventoSan(){
   if(!eventoSanAtual) return;
   const registros = MANEJOS_SANITARIOS.filter(m=>(m.evento_id||(m.data+'_'+m.tipo_manejo))===eventoSanAtual);
-  if(!confirm(`Excluir este manejo (${registros.length} aplicações)? Esta ação não pode ser desfeita.`)) return;
+  if(!confirm(`Excluir este manejo (${registros.length} aplicações)? Irá para a lixeira e poderá ser restaurado por 30 dias.`)) return;
   for(const m of registros){
+    await moverParaLixeira('manejos_sanitarios', m, `manejo sanitário — ${m.nome_manejo} — brinco ${m.animal_id} — ${fmtData(m.data)}`);
     await sb.from('manejos_sanitarios').delete().eq('id', m.id);
   }
   await registrarAudit('exclusao_manejo_sanitario','manejos_sanitarios',eventoSanAtual,{quantidade:registros.length});
@@ -3199,35 +3363,88 @@ async function carregarHistorico(){
 
 function renderHistorico(){
   const tipo = document.getElementById('hist-filtro-tipo').value;
+  const de = document.getElementById('hist-de')?.value || '';
+  const ate = document.getElementById('hist-ate')?.value || '';
   const q = (document.getElementById('hist-busca').value||'').toLowerCase();
-  const lista = HISTORICO.filter(h => {
-    const tipoOk = !tipo || h.tipo === tipo;
-    const buscaOk = !q || (h.animal_id+' '+(h.nome||'')).toLowerCase().includes(q);
-    return tipoOk && buscaOk;
+
+  // Unifica todas as atividades em uma lista
+  let atividades = [];
+
+  // Vendas e mortes (HISTORICO)
+  HISTORICO.forEach(h=>{
+    atividades.push({
+      tipoAtividade: h.tipo, // 'Venda' ou 'Morte'
+      data: h.data, brinco: h.animal_id,
+      detalhes: (h.tipo==='Venda'?'Destino: ':'Causa: ')+(h.destino||'—')+(h.obs?(' · '+h.obs):''),
+      valor: h.valor,
+      origem: 'historico', registro: h,
+    });
   });
-  const tipoBadge = {'Venda':'bb','Morte':'bp'};
-  document.getElementById('tbody-historico').innerHTML = lista.length ? lista.map(h => {
-    const idadeNaSaida = h.nasc && h.data ? (() => {
-      const d=new Date(h.nasc), s=new Date(h.data);
-      let a=s.getFullYear()-d.getFullYear(), m=s.getMonth()-d.getMonth();
-      if(m<0){a--;m+=12;}
-      return a>0?`${a}a ${m}m`:`${m}m`;
-    })() : '—';
+
+  // Pesagens
+  PESAGENS.forEach(p=>{
+    atividades.push({
+      tipoAtividade: 'Pesagem', data: p.data, brinco: p.animal_id,
+      detalhes: (p.peso?p.peso+' kg':'—')+(p.obs?(' · '+p.obs):''),
+      valor: null, origem: 'pesagens', registro: p,
+    });
+  });
+
+  // Inseminações
+  INSEMINACOES.forEach(i=>{
+    atividades.push({
+      tipoAtividade: 'Inseminação', data: i.data, brinco: i.femea,
+      detalhes: (i.touro||'—')+(i.resultado?(' · '+i.resultado):''),
+      valor: null, origem: 'inseminacoes', registro: i,
+    });
+  });
+
+  // Manejos sanitários
+  MANEJOS_SANITARIOS.forEach(m=>{
+    atividades.push({
+      tipoAtividade: 'Sanitário', data: m.data, brinco: m.animal_id,
+      detalhes: (m.nome_manejo||'—')+(m.medicamento?(' · '+m.medicamento):'')+(m.dose?(' ('+m.dose+')'):''),
+      valor: null, origem: 'manejos_sanitarios', registro: m,
+    });
+  });
+
+  // Filtros
+  const tipoMatch = (t) => {
+    if(!tipo) return true;
+    if(tipo==='Sanitário') return t==='Sanitário';
+    return t===tipo;
+  };
+  let lista = atividades.filter(a=>{
+    if(!tipoMatch(a.tipoAtividade)) return false;
+    if(de && (a.data||'') < de) return false;
+    if(ate && (a.data||'') > ate) return false;
+    if(q && !((a.brinco||'')+' '+(a.detalhes||'')).toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  // Ordena por data desc
+  lista.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+
+  const badgeCor = {'Venda':'bb','Morte':'bp','Pesagem':'bg','Inseminação':'bbl','Sanitário':'bgr'};
+
+  document.getElementById('tbody-historico').innerHTML = lista.length ? lista.slice(0,500).map((a,idx)=>{
+    const valorFmt = a.valor ? 'R$ '+Number(a.valor).toLocaleString('pt-BR') : '—';
+    // encode registro to find on edit/delete
+    const reg = encodeURIComponent(JSON.stringify({origem:a.origem, id:a.registro.id}));
     return `<tr>
-      <td>${fmtData(h.data)}</td>
-      <td><span class="badge ${tipoBadge[h.tipo]||'bgr'}">${h.tipo}</span></td>
-      <td><strong>${h.animal_id}</strong></td>
-      <td>${h.nome||'—'}</td>
-      <td>${h.raca||'—'}</td>
-      <td>${h.sexo==='F'?'Fêmea':h.sexo==='M'?'Macho':'—'}</td>
-      <td>${idadeNaSaida}</td>
-      <td>${h.peso?h.peso+' kg':'—'}</td>
-      <td>${h.piquete||'—'}</td>
-      <td>${h.destino||'—'}</td>
-      <td>${h.valor?'R$ '+Number(h.valor).toLocaleString('pt-BR',{minimumFractionDigits:2}):'—'}</td>
-      <td>${h.obs||'—'}</td>
+      <td style="white-space:nowrap">${fmtData(a.data)}</td>
+      <td><span class="badge ${badgeCor[a.tipoAtividade]||'bgr'}">${a.tipoAtividade}</span></td>
+      <td><strong>${a.brinco||'—'}</strong></td>
+      <td style="font-size:12px">${a.detalhes||'—'}</td>
+      <td>${valorFmt}</td>
+      <td style="white-space:nowrap">
+        ${a.origem==='historico'?`<button class="btn" style="font-size:11px;padding:3px 7px" onclick="editarAtividade('${reg}')">&#9998;</button>`:''}
+        <button class="btn btn-danger" style="font-size:11px;padding:3px 7px" onclick="excluirAtividade('${reg}')">&#128465;</button>
+      </td>
     </tr>`;
-  }).join('') : '<tr><td colspan="12" class="empty">Nenhum registro encontrado.</td></tr>';
+  }).join('') : '<tr><td colspan="6" class="empty">Nenhuma atividade encontrada.</td></tr>';
+
+  document.getElementById('hist-resumo').textContent = `${lista.length} atividade(s)`;
 }
 
 function exportarHistorico(){
@@ -4364,6 +4581,53 @@ verificarSessao();
     </div>
     <div class="modal-btns" style="margin-top:14px">
       <button class="btn" onclick="fecharModal('modal-ger-pesagens')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL EDITAR VENDA/MORTE -->
+<div id="modal-editar-hist" class="overlay" style="display:none">
+  <div class="modal">
+    <h3 id="edit-hist-titulo">Editar registro</h3>
+    <div class="fg">
+      <div><div class="fl">Tipo</div>
+        <select class="fi" id="edit-hist-tipo">
+          <option value="Venda">Venda</option>
+          <option value="Morte">Morte</option>
+        </select>
+      </div>
+      <div><div class="fl">Data</div><input class="fi" type="date" id="edit-hist-data"></div>
+    </div>
+    <div class="fg">
+      <div><div class="fl" id="edit-hist-label-destino">Destino / Comprador</div><input class="fi" id="edit-hist-destino"></div>
+      <div><div class="fl">Peso (kg)</div><input class="fi" type="number" id="edit-hist-peso"></div>
+    </div>
+    <div class="fg">
+      <div><div class="fl">Valor (R$)</div><input class="fi" type="number" id="edit-hist-valor"></div>
+      <div><div class="fl">Observação</div><input class="fi" id="edit-hist-obs"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-s" onclick="salvarEdicaoAtividade()">&#10003; Salvar</button>
+      <button class="btn" onclick="fecharModal('modal-editar-hist')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LIXEIRA -->
+<div id="modal-lixeira" class="overlay" style="display:none">
+  <div class="modal" style="max-width:720px">
+    <h3>&#128465; Lixeira</h3>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px" id="lixeira-resumo"></div>
+    <div class="tw" style="max-height:420px;overflow-y:auto">
+      <table><thead><tr>
+        <th>Excluído em</th><th>Tipo</th><th>Descrição</th><th>Por</th><th>Expira</th><th>Ação</th>
+      </tr></thead>
+      <tbody id="tbody-lixeira"></tbody>
+      </table>
+    </div>
+    <div class="modal-btns" style="margin-top:14px">
+      <button class="btn" onclick="fecharModal('modal-lixeira')">Fechar</button>
     </div>
   </div>
 </div>
