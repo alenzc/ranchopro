@@ -2475,6 +2475,25 @@ async function getEventoItens(origem, chave){
 }
 
 // Ver detalhes de um evento (lista de animais)
+
+function exportarEventoHist(){
+  const ev = window._eventoHistAtual;
+  if(!ev || !ev.itens || !ev.itens.length){ alert('Nada para exportar.'); return; }
+  let dados;
+  if(ev.origem==='pesagens'){
+    dados = ev.itens.map(p=>({Brinco:p.animal_id, 'Peso (kg)':p.peso||'', Data:fmtData(p.data), Observação:p.obs||''}));
+  } else if(ev.origem==='inseminacoes'){
+    dados = ev.itens.map(i=>({Fêmea:i.femea, 'Touro/Sêmen':i.touro||'', Tipo:i.tipo||'', Resultado:i.resultado||'', Data:fmtData(i.data)}));
+  } else if(ev.origem==='manejos_sanitarios'){
+    dados = ev.itens.map(m=>({Brinco:m.animal_id, Manejo:m.nome_manejo||'', Medicamento:m.medicamento||'', Dose:m.dose||'', Data:fmtData(m.data), Observação:m.obs||''}));
+  } else {
+    dados = ev.itens.map(h=>({Brinco:h.animal_id, Tipo:h.tipo||'', 'Destino/Causa':h.destino||'', 'Peso (kg)':h.peso||'', 'Valor (R$)':h.valor||'', Data:fmtData(h.data), Observação:h.obs||''}));
+  }
+  const nome = `evento_${ev.origem}_${(ev.itens[0].data||'').replace(/-/g,'')}.csv`;
+  exportarCSV(dados, nome);
+}
+
+
 function verEventoHist(enc){
   let info; try{ info=JSON.parse(decodeURIComponent(enc)); }catch(e){ return; }
   const itens = (info.origem==='historico') ? HISTORICO.filter(h=>h.id===info.chave)
@@ -2497,6 +2516,8 @@ function verEventoHist(enc){
     cols=['Brinco','Destino/Causa','Peso','Valor','Obs'];
     linhas=itens.map(h=>`<tr><td><strong>${h.animal_id}</strong></td><td>${h.destino||'—'}</td><td>${h.peso||'—'}</td><td>${h.valor?'R$ '+Number(h.valor).toLocaleString('pt-BR'):'—'}</td><td>${h.obs||'—'}</td></tr>`);
   }
+  // Guarda para exportação
+  window._eventoHistAtual = {origem:info.origem, itens};
   document.getElementById('evento-hist-titulo').textContent = `${itens[0].nome_manejo||info.origem} — ${fmtData(itens[0].data)} (${itens.length})`;
   document.getElementById('evento-hist-corpo').innerHTML =
     '<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr style="background:var(--bg3)">'+
@@ -4708,6 +4729,7 @@ verificarSessao();
     <h3 id="evento-hist-titulo">Detalhes do evento</h3>
     <div class="tw" style="max-height:420px;overflow-y:auto" id="evento-hist-corpo"></div>
     <div class="modal-btns" style="margin-top:14px">
+      <button class="btn btn-s" onclick="exportarEventoHist()">&#8595; Exportar Excel</button>
       <button class="btn" onclick="fecharModal('modal-evento-hist')">Fechar</button>
     </div>
   </div>
