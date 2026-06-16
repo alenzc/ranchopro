@@ -16,7 +16,7 @@
   --blue:#1A5FA8;--blue-bg:#E8F1FC;
   --red:#C0392B;--red-bg:#FDEDEC;
   --purple:#5B3B8C;--purple-bg:#F0EAFA;
-  --font-size: 13px;
+  --font-size: 14px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:var(--font-size)}
@@ -160,7 +160,7 @@ tr:hover td{background:var(--brand-light)}
   <span class="topbar-title">AgroCampos — RanchoPro</span>
   <div class="font-ctrl" title="Tamanho da fonte">
     <button onclick="ajustarFonte(-1)">A-</button>
-    <span id="font-label">13px</span>
+    <span id="font-label">14px</span>
     <button onclick="ajustarFonte(1)">A+</button>
   </div>
   <button class="btn" onclick="exportarTudo()" style="margin-left:auto;font-size:11px;background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.3);color:#fff">&#8595; Exportar tudo</button>
@@ -224,7 +224,15 @@ tr:hover td{background:var(--brand-light)}
     <div class="metrics" id="dash-repro"></div>
 
     <!-- INDICADORES PRODUTIVOS -->
-    <div style="font-size:12px;font-weight:600;color:var(--text2);margin:14px 0 8px;text-transform:uppercase;letter-spacing:0.5px">Produção — ano pecuário</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:14px 0 8px">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px">Produção — ano pecuário</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <input class="fi" type="date" id="ap-dash-inicio" style="width:140px;font-size:12px;padding:4px 8px">
+        <span style="color:var(--text3)">→</span>
+        <input class="fi" type="date" id="ap-dash-fim" style="width:140px;font-size:12px;padding:4px 8px">
+        <button class="btn" style="font-size:11px;padding:5px 10px" onclick="salvarAnoPecuarioDash()">Aplicar</button>
+      </div>
+    </div>
     <div class="metrics" id="dash-prod"></div>
 
     <!-- EVOLUÇÃO PESO POR CATEGORIA -->
@@ -1130,6 +1138,16 @@ function carregarAnoPecuarioLocal(){
   }catch(e){}
 }
 
+
+function salvarAnoPecuarioDash(){
+  const ini=document.getElementById('ap-dash-inicio').value;
+  const fim=document.getElementById('ap-dash-fim').value;
+  if(!ini||!fim){alert('Preencha início e fim.');return;}
+  AP_INICIO=ini; AP_FIM=fim;
+  try{ localStorage.setItem('agrocampos_ano_pecuario',JSON.stringify({inicio:ini,fim:fim})); }catch(e){}
+  renderDash();
+}
+
 function salvarAnoPecuario(){
   AP_INICIO=document.getElementById('ap-inicio').value;
   AP_FIM=document.getElementById('ap-fim').value;
@@ -1167,6 +1185,11 @@ function renderDash(){
   const inicio=EM_INICIO, fim=EM_FIM;
   const ap = anoPecuario();
   const apInicio=ap.inicio, apFim=ap.fim;
+  // Popula seletores de ano pecuário no dashboard
+  const apdi=document.getElementById('ap-dash-inicio');
+  const apdf=document.getElementById('ap-dash-fim');
+  if(apdi && !apdi.value) apdi.value=apInicio;
+  if(apdf && !apdf.value) apdf.value=apFim;
 
   // Update label
   const rl = document.getElementById('dash-repro-label');
@@ -2442,37 +2465,78 @@ async function moverParaLixeira(origem, registro, descricao){
   await sb.from('lixeira').insert(lix);
 }
 
-async function excluirAtividade(regEnc){
-  let info;
-  try { info = JSON.parse(decodeURIComponent(regEnc)); } catch(e){ return; }
-  const {origem, id} = info;
+async function getEventoItens(origem, chave){
+  // Retorna a lista de registros de um evento agrupado
+  if(origem==='historico') return HISTORICO.filter(h=>h.id===chave);
+  if(origem==='pesagens') return PESAGENS.filter(p=>(p.data||'sd')===chave);
+  if(origem==='inseminacoes') return INSEMINACOES.filter(i=>(i.data||'sd')===chave);
+  if(origem==='manejos_sanitarios') return MANEJOS_SANITARIOS.filter(m=>(m.evento_id||(m.data+'_'+m.tipo_manejo))===chave);
+  return [];
+}
 
-  // Localiza o registro completo
-  let registro = null;
-  if(origem==='historico') registro = HISTORICO.find(h=>h.id===id);
-  else if(origem==='pesagens') registro = PESAGENS.find(p=>p.id===id);
-  else if(origem==='inseminacoes') registro = INSEMINACOES.find(i=>i.id===id);
-  else if(origem==='manejos_sanitarios') registro = MANEJOS_SANITARIOS.find(m=>m.id===id);
-  if(!registro){ alert('Registro não encontrado.'); return; }
+// Ver detalhes de um evento (lista de animais)
+function verEventoHist(enc){
+  let info; try{ info=JSON.parse(decodeURIComponent(enc)); }catch(e){ return; }
+  const itens = (info.origem==='historico') ? HISTORICO.filter(h=>h.id===info.chave)
+    : info.origem==='pesagens' ? PESAGENS.filter(p=>(p.data||'sd')===info.chave)
+    : info.origem==='inseminacoes' ? INSEMINACOES.filter(i=>(i.data||'sd')===info.chave)
+    : MANEJOS_SANITARIOS.filter(m=>(m.evento_id||(m.data+'_'+m.tipo_manejo))===info.chave);
+  if(!itens.length){ alert('Sem itens.'); return; }
 
-  const labelTipo = {historico:'venda/morte', pesagens:'pesagem', inseminacoes:'inseminação', manejos_sanitarios:'manejo sanitário'}[origem];
-  if(!confirm(`Excluir esta ${labelTipo}? Ela irá para a lixeira e poderá ser restaurada por até 30 dias.`)) return;
+  let cols, linhas;
+  if(info.origem==='pesagens'){
+    cols=['Brinco','Peso (kg)','Obs'];
+    linhas=itens.map(p=>`<tr><td><strong>${p.animal_id}</strong></td><td>${p.peso||'—'}</td><td>${p.obs||'—'}</td></tr>`);
+  } else if(info.origem==='inseminacoes'){
+    cols=['Fêmea','Touro/Sêmen','Resultado'];
+    linhas=itens.map(i=>`<tr><td><strong>${i.femea}</strong></td><td>${i.touro||'—'}</td><td>${i.resultado||'—'}</td></tr>`);
+  } else if(info.origem==='manejos_sanitarios'){
+    cols=['Brinco','Medicamento','Dose','Obs'];
+    linhas=itens.map(m=>`<tr><td><strong>${m.animal_id}</strong></td><td>${m.medicamento||'—'}</td><td>${m.dose||'—'}</td><td>${m.obs||'—'}</td></tr>`);
+  } else {
+    cols=['Brinco','Destino/Causa','Peso','Valor','Obs'];
+    linhas=itens.map(h=>`<tr><td><strong>${h.animal_id}</strong></td><td>${h.destino||'—'}</td><td>${h.peso||'—'}</td><td>${h.valor?'R$ '+Number(h.valor).toLocaleString('pt-BR'):'—'}</td><td>${h.obs||'—'}</td></tr>`);
+  }
+  document.getElementById('evento-hist-titulo').textContent = `${itens[0].nome_manejo||info.origem} — ${fmtData(itens[0].data)} (${itens.length})`;
+  document.getElementById('evento-hist-corpo').innerHTML =
+    '<table style="width:100%;font-size:12px;border-collapse:collapse"><thead><tr style="background:var(--bg3)">'+
+    cols.map(c=>`<th style="padding:5px 8px;text-align:left">${c}</th>`).join('')+
+    '</tr></thead><tbody>'+linhas.join('')+'</tbody></table>';
+  document.getElementById('modal-evento-hist').style.display='flex';
+}
 
-  const desc = `${labelTipo} — brinco ${registro.animal_id||registro.femea||'?'} — ${fmtData(registro.data)}`;
-  await moverParaLixeira(origem, registro, desc);
-  await sb.from(origem).delete().eq('id', id);
-  await registrarAudit('exclusao_'+origem, origem, id, {descricao:desc});
+// Excluir um evento INTEIRO (lote) para a lixeira
+async function excluirEventoHist(enc){
+  let info; try{ info=JSON.parse(decodeURIComponent(enc)); }catch(e){ return; }
+  const itens = await getEventoItens(info.origem, info.chave);
+  if(!itens.length) return;
+
+  const labelTipo = {historico:'venda/morte', pesagens:'pesagens', inseminacoes:'inseminações', manejos_sanitarios:'manejo sanitário'}[info.origem];
+  if(!confirm(`Excluir este lote de ${itens.length} registro(s) (${labelTipo})? Vai para a lixeira e pode ser restaurado por 30 dias.`)) return;
+
+  // Guarda o lote inteiro como UM item na lixeira (para restaurar tudo junto)
+  const desc = `${labelTipo} — ${itens.length} registro(s) — ${fmtData(itens[0].data)}`;
+  await sb.from('lixeira').insert({
+    id:'lix_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+    tipo_registro:info.origem, tabela_origem:info.origem,
+    dados_json: JSON.stringify(itens), descricao:desc,
+    excluido_por:(USUARIO_ATUAL&&(USUARIO_ATUAL.nome||USUARIO_ATUAL.email))||'desconhecido',
+    excluido_em:new Date().toISOString(),
+  });
+  for(const it of itens){
+    await sb.from(info.origem).delete().eq('id', it.id);
+  }
+  await registrarAudit('exclusao_lote_'+info.origem, info.origem, info.chave, {quantidade:itens.length});
   await carregarTudo();
   renderHistorico();
 }
 
-// Editar venda/morte
+// Editar venda/morte (individual)
 let atividadeEditandoId = null;
-function editarAtividade(regEnc){
-  let info;
-  try { info = JSON.parse(decodeURIComponent(regEnc)); } catch(e){ return; }
-  if(info.origem !== 'historico'){ alert('Apenas vendas e mortes podem ser editadas aqui. Para os demais, exclua e registre novamente.'); return; }
-  const h = HISTORICO.find(x=>x.id===info.id);
+function editarAtividade(enc){
+  let info; try{ info=JSON.parse(decodeURIComponent(enc)); }catch(e){ return; }
+  if(info.origem!=='historico'){ alert('Apenas vendas e mortes podem ser editadas. Para os demais lotes, exclua e registre novamente.'); return; }
+  const h = HISTORICO.find(x=>x.id===info.chave);
   if(!h){ alert('Registro não encontrado.'); return; }
   atividadeEditandoId = h.id;
   document.getElementById('edit-hist-tipo').value = h.tipo;
@@ -2540,16 +2604,16 @@ async function restaurarItem(lixId){
 
   if(!confirm(`Restaurar "${item.descricao}"?`)) return;
 
-  // Reinsere na tabela de origem
-  const {error} = await sb.from(item.tabela_origem).insert(registro);
+  // Pode ser um único registro (objeto) ou um lote (array)
+  const rows = Array.isArray(registro) ? registro : [registro];
+  const {error} = await sb.from(item.tabela_origem).insert(rows);
   if(error){ alert('Erro ao restaurar: '+error.message); return; }
-  // Remove da lixeira
   await sb.from('lixeira').delete().eq('id', lixId);
   await registrarAudit('restauracao','lixeira',lixId,{descricao:item.descricao});
   await carregarTudo();
   await renderLixeira();
   renderHistorico();
-  alert('✓ Item restaurado com sucesso!');
+  alert(`✓ ${rows.length} registro(s) restaurado(s) com sucesso!`);
 }
 
 async function limparLixeiraAntiga(){
@@ -2685,7 +2749,7 @@ function renderSanidade(){
       <td><span class="badge bb">${tipoCat[ev.tipo]||'—'}</span></td>
       <td>${ev.animais.length}</td>
       <td style="font-size:11px">${ev.medicamento||'—'}</td>
-      <td><button class="btn" style="font-size:11px;padding:4px 8px" onclick="verEventoSan('${ev.evento_id.replace(/'/g,"\\'")}'）">Ver</button></td>
+      <td><button class="btn" style="font-size:11px;padding:4px 8px" onclick="verEventoSan('${ev.evento_id.replace(/'/g,"\\'")}')">Ver</button></td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" class="empty">Nenhum manejo registrado.</td></tr>';
 
@@ -3367,84 +3431,88 @@ function renderHistorico(){
   const ate = document.getElementById('hist-ate')?.value || '';
   const q = (document.getElementById('hist-busca').value||'').toLowerCase();
 
-  // Unifica todas as atividades em uma lista
-  let atividades = [];
+  // Monta eventos AGRUPADOS (não animal por animal)
+  let eventos = [];
 
-  // Vendas e mortes (HISTORICO)
-  HISTORICO.forEach(h=>{
-    atividades.push({
-      tipoAtividade: h.tipo, // 'Venda' ou 'Morte'
-      data: h.data, brinco: h.animal_id,
-      detalhes: (h.tipo==='Venda'?'Destino: ':'Causa: ')+(h.destino||'—')+(h.obs?(' · '+h.obs):''),
-      valor: h.valor,
-      origem: 'historico', registro: h,
-    });
-  });
-
-  // Pesagens
+  // --- Pesagens agrupadas por DATA ---
+  const pesGrupos = {};
   PESAGENS.forEach(p=>{
-    atividades.push({
-      tipoAtividade: 'Pesagem', data: p.data, brinco: p.animal_id,
-      detalhes: (p.peso?p.peso+' kg':'—')+(p.obs?(' · '+p.obs):''),
-      valor: null, origem: 'pesagens', registro: p,
-    });
+    const k = 'pes_'+(p.data||'sd');
+    if(!pesGrupos[k]) pesGrupos[k]={tipoAtividade:'Pesagem',data:p.data,origem:'pesagens',chave:p.data,itens:[]};
+    pesGrupos[k].itens.push(p);
   });
+  Object.values(pesGrupos).forEach(g=>eventos.push(g));
 
-  // Inseminações
+  // --- Inseminações agrupadas por DATA ---
+  const insGrupos = {};
   INSEMINACOES.forEach(i=>{
-    atividades.push({
-      tipoAtividade: 'Inseminação', data: i.data, brinco: i.femea,
-      detalhes: (i.touro||'—')+(i.resultado?(' · '+i.resultado):''),
-      valor: null, origem: 'inseminacoes', registro: i,
-    });
+    const k = 'ins_'+(i.data||'sd');
+    if(!insGrupos[k]) insGrupos[k]={tipoAtividade:'Inseminação',data:i.data,origem:'inseminacoes',chave:i.data,itens:[]};
+    insGrupos[k].itens.push(i);
   });
+  Object.values(insGrupos).forEach(g=>eventos.push(g));
 
-  // Manejos sanitários
+  // --- Manejos sanitários agrupados por EVENTO ---
+  const sanGrupos = {};
   MANEJOS_SANITARIOS.forEach(m=>{
-    atividades.push({
-      tipoAtividade: 'Sanitário', data: m.data, brinco: m.animal_id,
-      detalhes: (m.nome_manejo||'—')+(m.medicamento?(' · '+m.medicamento):'')+(m.dose?(' ('+m.dose+')'):''),
-      valor: null, origem: 'manejos_sanitarios', registro: m,
-    });
+    const k = m.evento_id || (m.data+'_'+m.tipo_manejo);
+    if(!sanGrupos[k]) sanGrupos[k]={tipoAtividade:'Sanitário',data:m.data,origem:'manejos_sanitarios',chave:k,nome:m.nome_manejo,medicamento:m.medicamento,itens:[]};
+    sanGrupos[k].itens.push(m);
+  });
+  Object.values(sanGrupos).forEach(g=>eventos.push(g));
+
+  // --- Vendas e mortes: individuais (cada uma é um evento) ---
+  HISTORICO.forEach(h=>{
+    eventos.push({tipoAtividade:h.tipo,data:h.data,origem:'historico',chave:h.id,registro:h,itens:[h]});
   });
 
   // Filtros
-  const tipoMatch = (t) => {
-    if(!tipo) return true;
-    if(tipo==='Sanitário') return t==='Sanitário';
-    return t===tipo;
-  };
-  let lista = atividades.filter(a=>{
-    if(!tipoMatch(a.tipoAtividade)) return false;
-    if(de && (a.data||'') < de) return false;
-    if(ate && (a.data||'') > ate) return false;
-    if(q && !((a.brinco||'')+' '+(a.detalhes||'')).toLowerCase().includes(q)) return false;
+  const tipoMatch = (t)=> !tipo || t===tipo;
+  let lista = eventos.filter(ev=>{
+    if(!tipoMatch(ev.tipoAtividade)) return false;
+    if(de && (ev.data||'')<de) return false;
+    if(ate && (ev.data||'')>ate) return false;
+    if(q){
+      const txt = (ev.nome||'')+' '+(ev.medicamento||'')+' '+ev.itens.map(x=>(x.animal_id||x.femea||'')).join(' ');
+      if(!txt.toLowerCase().includes(q)) return false;
+    }
     return true;
   });
-
-  // Ordena por data desc
   lista.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
 
   const badgeCor = {'Venda':'bb','Morte':'bp','Pesagem':'bg','Inseminação':'bbl','Sanitário':'bgr'};
 
-  document.getElementById('tbody-historico').innerHTML = lista.length ? lista.slice(0,500).map((a,idx)=>{
-    const valorFmt = a.valor ? 'R$ '+Number(a.valor).toLocaleString('pt-BR') : '—';
-    // encode registro to find on edit/delete
-    const reg = encodeURIComponent(JSON.stringify({origem:a.origem, id:a.registro.id}));
+  document.getElementById('tbody-historico').innerHTML = lista.length ? lista.slice(0,400).map(ev=>{
+    const qtd = ev.itens.length;
+    let descricao='', valorFmt='—';
+    if(ev.origem==='historico'){
+      const h=ev.registro;
+      descricao=(h.tipo==='Venda'?'Destino: ':'Causa: ')+(h.destino||'—')+' · brinco '+h.animal_id;
+      valorFmt = h.valor ? 'R$ '+Number(h.valor).toLocaleString('pt-BR') : '—';
+    } else if(ev.origem==='pesagens'){
+      descricao=`${qtd} pesagem(ns)`;
+    } else if(ev.origem==='inseminacoes'){
+      descricao=`${qtd} inseminação(ões)`;
+    } else if(ev.origem==='manejos_sanitarios'){
+      descricao=`${ev.nome||'Manejo'} — ${qtd} animal(is)`+(ev.medicamento?` · ${ev.medicamento}`:'');
+    }
+    const chaveEnc = encodeURIComponent(JSON.stringify({origem:ev.origem, chave:ev.chave}));
+    const podeEditar = ev.origem==='historico';
     return `<tr>
-      <td style="white-space:nowrap">${fmtData(a.data)}</td>
-      <td><span class="badge ${badgeCor[a.tipoAtividade]||'bgr'}">${a.tipoAtividade}</span></td>
-      <td><strong>${a.brinco||'—'}</strong></td>
-      <td style="font-size:12px">${a.detalhes||'—'}</td>
+      <td style="white-space:nowrap">${fmtData(ev.data)}</td>
+      <td><span class="badge ${badgeCor[ev.tipoAtividade]||'bgr'}">${ev.tipoAtividade}</span></td>
+      <td style="text-align:center">${ev.origem==='historico'?('<strong>'+ev.registro.animal_id+'</strong>'):(qtd+' animais')}</td>
+      <td style="font-size:12px">${descricao}</td>
       <td>${valorFmt}</td>
       <td style="white-space:nowrap">
-        ${a.origem==='historico'?`<button class="btn" style="font-size:11px;padding:3px 7px" onclick="editarAtividade('${reg}')">&#9998;</button>`:''}
-        <button class="btn btn-danger" style="font-size:11px;padding:3px 7px" onclick="excluirAtividade('${reg}')">&#128465;</button>
+        <button class="btn" style="font-size:11px;padding:3px 7px" onclick="verEventoHist('${chaveEnc}')">Ver</button>
+        ${podeEditar?`<button class="btn" style="font-size:11px;padding:3px 7px" onclick="editarAtividade('${chaveEnc}')">&#9998;</button>`:''}
+        <button class="btn btn-danger" style="font-size:11px;padding:3px 7px" onclick="excluirEventoHist('${chaveEnc}')">&#128465;</button>
       </td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" class="empty">Nenhuma atividade encontrada.</td></tr>';
 
-  document.getElementById('hist-resumo').textContent = `${lista.length} atividade(s)`;
+  document.getElementById('hist-resumo').textContent = `${lista.length} evento(s)`;
 }
 
 function exportarHistorico(){
@@ -3938,7 +4006,7 @@ function processarImportacao() {
 
 
 // ===== FONT SIZE =====
-let fontSize = 13;
+let fontSize = 14;
 function ajustarFonte(delta) {
   fontSize = Math.min(18, Math.max(10, fontSize + delta));
   document.documentElement.style.setProperty('--font-size', fontSize + 'px');
@@ -4143,6 +4211,7 @@ function exportarTudo() {
   setTimeout(() => exportarPiquetes(), 1500);
 }
 
+try{ ajustarFonte(0); }catch(e){}
 verificarSessao();
 </script>
 
