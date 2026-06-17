@@ -3040,6 +3040,22 @@ function exportarManejosSanitarios(){
 }
 
 
+
+// Busca a data em qualquer coluna provável da planilha de manejo
+function buscarDataManejo(row){
+  // Tenta várias chaves possíveis
+  const chaves = ['data','data ','data dg','data da pesagem','data pesagem','data manejo','data do manejo','dt','date'];
+  for(const k of Object.keys(row)){
+    const kl = k.toLowerCase().trim();
+    if(chaves.includes(kl) || kl.startsWith('data')){
+      const v = normalizarData(row[k]);
+      if(v) return v;
+    }
+  }
+  return null;
+}
+
+
 // ===== MANEJOS EM LOTE =====
 let manejoAtual = null;
 let manejoCSVData = [];
@@ -3163,7 +3179,11 @@ function previewManejo(){
 
     // Show preview
     document.getElementById('manejo-preview').style.display = 'block';
-    document.getElementById('manejo-preview-info').textContent = `${manejoCSVData.length} registros encontrados no arquivo`;
+    const datasDetectadas = manejoCSVData.map(r=>buscarDataManejo(r)).filter(Boolean);
+    const dataInfo = datasDetectadas.length
+      ? ` · data detectada: ${fmtData(datasDetectadas[0])}${datasDetectadas.length>1 && datasDetectadas.some(d=>d!==datasDetectadas[0])?' (datas variadas)':''}`
+      : ' · ⚠️ nenhuma data detectada — será usada a data de hoje';
+    document.getElementById('manejo-preview-info').innerHTML = `${manejoCSVData.length} registros encontrados${dataInfo}`;
     document.getElementById('manejo-preview-header').innerHTML = header.map(h=>`<th>${h}</th>`).join('');
     document.getElementById('manejo-preview-body').innerHTML = manejoCSVData.slice(0,5).map(r=>
       `<tr>${header.map(h=>`<td>${r[h.toLowerCase()]||'—'}</td>`).join('')}</tr>`
@@ -3186,7 +3206,7 @@ async function executarManejo(){
     for(const row of manejoCSVData){
       const brinco = (row['brinco']||'').trim();
       const resultado = (row['resultado dg']||row['resultado']||'').trim();
-      const data = (normalizarData(row['data dg']||row['data'])||new Date().toISOString().split('T')[0]).trim();
+      const data = (buscarDataManejo(row)||new Date().toISOString().split('T')[0]).trim();
       const obs = row['observação']||row['observacao']||'';
       if(!brinco){erros.push({linha: '?', erro: 'Linha sem brinco ignorada'});continue;}
       const animal = ANIMAIS.find(a=>a.id===brinco);
@@ -3211,7 +3231,7 @@ async function executarManejo(){
     for(const row of manejoCSVData){
       const brinco = (row['brinco']||'').trim();
       const peso = parseFloat(row['peso (kg)']||row['peso']||'');
-      const data = (normalizarData(row['data'])||new Date().toISOString().split('T')[0]).trim();
+      const data = buscarDataManejo(row) || new Date().toISOString().split('T')[0];
       if(!brinco||!peso){erros.push({linha: brinco||'?', erro: 'Brinco ou peso inválido — verifique se a coluna "Peso (kg)" está preenchida'});continue;}
       const animal = ANIMAIS.find(a=>a.id===brinco);
       if(!animal){erros.push({linha: brinco, erro: 'Animal não encontrado no plantel'});continue;}
@@ -3244,7 +3264,7 @@ async function executarManejo(){
     for(const row of manejoCSVData){
       const brinco = (row['brinco']||'').trim();
       const touro = (row['touro/sêmen']||row['touro/semen']||row['touro']||'').trim();
-      const data = (normalizarData(row['data'])||new Date().toISOString().split('T')[0]).trim();
+      const data = buscarDataManejo(row) || new Date().toISOString().split('T')[0];
       if(!brinco||!touro){erros.push({linha: brinco||'?', erro: 'Brinco ou touro/sêmen não informado'});continue;}
       const animal = ANIMAIS.find(a=>a.id===brinco);
       if(!animal){erros.push({linha: brinco, erro: 'Animal não encontrado no plantel'});continue;}
