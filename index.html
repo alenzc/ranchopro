@@ -45,6 +45,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .ct{font-size:13px;font-weight:700;color:var(--text)}
 /* TABLE */
 .tw{overflow-x:auto}
+.tw-top{overflow-x:auto;overflow-y:hidden}
+.tw-top div{height:1px}
+
 table{width:100%;border-collapse:collapse;font-size:var(--font-size)}
 th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--border);font-size:11px;font-weight:700;color:var(--text2);white-space:nowrap;background:var(--bg3);cursor:pointer;user-select:none;position:relative}
 th:hover{background:var(--brand-light);color:var(--brand)}
@@ -318,7 +321,8 @@ tr:hover td{background:var(--brand-light)}
     </div>
     <div class="card">
       <div id="count-animais" style="font-size:11px;color:#888;margin-bottom:10px"></div>
-      <div class="tw">
+      <div class="tw-top" id="animais-scroll-top"><div id="animais-scroll-top-inner"></div></div>
+      <div class="tw" id="animais-tw">
         <table id="tab-animais"><thead><tr>
           <th onclick="sortAnimais('id')">Brinco <span class="sort-icon">⇅</span></th>
           <th class="col-nome" onclick="sortAnimais('nome')">Nome <span class="sort-icon">⇅</span></th>
@@ -1375,6 +1379,24 @@ function renderDash(){
     (semLote?'<div class="alert-row"><div class="adot" style="background:#888"></div><div style="flex:1"><div style="font-size:12px;font-weight:600">'+semLote+' animais sem lote definido</div><div style="font-size:11px;color:var(--text2)">Atribua lotes na aba Lotes</div></div><span class="badge bgr">Lotes</span></div>':'')+
     (!agDG2&&!semPeso&&!piqSL?'<div class="alert-row"><div class="adot" style="background:var(--green)"></div><div style="flex:1"><div style="font-size:12px;font-weight:600">Sistema funcionando normalmente</div><div style="font-size:11px;color:var(--text2)">Dados sincronizados com o servidor</div></div><span class="badge bg">OK</span></div>':'');
 }
+
+// Sincroniza barra de rolagem superior com a tabela de animais
+function syncAnimaisScroll(){
+  const top = document.getElementById('animais-scroll-top');
+  const tw = document.getElementById('animais-tw');
+  const inner = document.getElementById('animais-scroll-top-inner');
+  if(!top || !tw || !inner) return;
+  const table = tw.querySelector('table');
+  if(!table) return;
+  // Largura do conteúdo da tabela
+  inner.style.width = table.scrollWidth + 'px';
+  // Sincroniza rolagem nos dois sentidos
+  let syncing = false;
+  top.onscroll = ()=>{ if(syncing)return; syncing=true; tw.scrollLeft = top.scrollLeft; syncing=false; };
+  tw.onscroll = ()=>{ if(syncing)return; syncing=true; top.scrollLeft = tw.scrollLeft; syncing=false; };
+}
+
+
 let animaisFiltrados=[];
 function renderAnimais(){
   const q=(document.getElementById('busca').value||'').toLowerCase();
@@ -1418,6 +1440,7 @@ function renderAnimais(){
       <td><button class="btn" style="padding:3px 8px;font-size:11px" onclick="abrirEditarAnimal('${a.id.replace(/'/g,"\\'")}')" title="Editar">&#9998;</button></td>
     </tr>`;
   }).join(''):`<tr><td colspan="8" class="empty">Nenhum animal encontrado.</td></tr>`;
+  setTimeout(syncAnimaisScroll, 50);
 }
 function filtrarAnimais(){renderAnimais();}
 
@@ -1671,6 +1694,7 @@ function renderPiquetes(){
       <div style="display:flex;gap:6px;margin-top:10px">
         <button class="btn" style="flex:1;justify-content:center;font-size:11px" onclick="verAnimaisPiquete('${p.nome.replace(/'/g,"\\'")}')">&#128065; Ver animais</button>
         <button class="btn" style="font-size:11px;padding:6px 8px" onclick="abrirEditarPiquete('${p.nome.replace(/'/g,"\\'")}')">&#9998;</button>
+        <button class="btn btn-danger" style="font-size:11px;padding:6px 8px" onclick="event.stopPropagation();excluirLote('${l.id.replace(/'/g,"\\'")}')">&#128465;</button>
       </div>
     </div>`;
   }).join(''):`<div class="empty">Nenhum piquete cadastrado.</div>`;
@@ -2091,6 +2115,36 @@ function editarLote(id){
   document.getElementById('modal-lote-titulo').textContent = 'Editar lote — ' + l.nome;
   abrirModal('modal-lote');
 }
+
+
+async function excluirLote(id){
+  const lote = LOTES.find(l=>l.id===id);
+  if(!lote) return;
+  const nAnimais = ANIMAIS.filter(a=>a.lote===id).length;
+  let msg = `Excluir o lote "${lote.nome}"?`;
+  if(nAnimais > 0){
+    msg += `\n\n⚠️ Há ${nAnimais} animal(is) neste lote. Eles NÃO serão excluídos — apenas ficarão sem lote.`;
+  }
+  if(!confirm(msg)) return;
+
+  // Remove o lote dos animais vinculados
+  if(nAnimais > 0){
+    await sb.from('animais').update({lote:null}).eq('lote', id);
+  }
+  // Exclui o lote
+  const {error} = await sb.from('lotes').delete().eq('id', id);
+  if(error){ alert('Erro ao excluir: '+error.message); return; }
+  await registrarAudit('exclusao_lote','lotes',id,{nome:lote.nome, animais_desvinculados:nAnimais});
+  await carregarTudo();
+  renderLotes();
+  // Se o detalhe deste lote estava aberto, fecha
+  if(document.getElementById('filtro-lote-sel') && document.getElementById('filtro-lote-sel').value===id){
+    document.getElementById('filtro-lote-sel').value='';
+    renderLoteDetalhe();
+  }
+  alert(`✓ Lote "${lote.nome}" excluído.`);
+}
+
 
 async function salvarLote(){
   const nome = document.getElementById('lote-nome').value.trim();
