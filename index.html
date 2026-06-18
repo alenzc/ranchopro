@@ -1694,7 +1694,6 @@ function renderPiquetes(){
       <div style="display:flex;gap:6px;margin-top:10px">
         <button class="btn" style="flex:1;justify-content:center;font-size:11px" onclick="verAnimaisPiquete('${p.nome.replace(/'/g,"\\'")}')">&#128065; Ver animais</button>
         <button class="btn" style="font-size:11px;padding:6px 8px" onclick="abrirEditarPiquete('${p.nome.replace(/'/g,"\\'")}')">&#9998;</button>
-        <button class="btn btn-danger" style="font-size:11px;padding:6px 8px" onclick="event.stopPropagation();excluirLote('${l.id.replace(/'/g,"\\'")}')">&#128465;</button>
       </div>
     </div>`;
   }).join(''):`<div class="empty">Nenhum piquete cadastrado.</div>`;
@@ -2003,6 +2002,7 @@ function renderLotes(){
       <div style="display:flex;gap:6px;margin-top:10px">
         <button class="btn" style="flex:1;justify-content:center;font-size:11px" onclick="event.stopPropagation();abrirAtribuirLote('${l.id.replace(/'/g,"\'")}')">+ Animais</button>
         <button class="btn" style="font-size:11px;padding:6px 8px" onclick="event.stopPropagation();editarLote('${l.id.replace(/'/g,"\'")}')">&#9998;</button>
+        <button class="btn btn-danger" style="font-size:11px;padding:6px 8px" onclick="event.stopPropagation();excluirLote('${l.id.replace(/'/g,"\\'")}')">&#128465;</button>
       </div>
     </div>`;
   }).join('') : '<div class="empty" style="padding:30px">Nenhum lote encontrado. Crie um novo lote.</div>';
