@@ -311,6 +311,7 @@ tr:hover td{background:var(--brand-light)}
       <label><input type="checkbox" checked onchange="toggleCol('col-situacao',this.checked)"> Situação</label>
       <label><input type="checkbox" onchange="toggleCol('col-pai',this.checked)"> Pai</label>
       <label><input type="checkbox" onchange="toggleCol('col-lote',this.checked)"> Lote</label>
+      <label><input type="checkbox" onchange="toggleCol('col-obs',this.checked)"> Observação</label>
       <label><input type="checkbox" onchange="toggleCol('col-mae',this.checked)"> Mãe</label>
       <label><input type="checkbox" checked onchange="toggleCol('col-lote',this.checked)"> Lote</label>
       <label><input type="checkbox" onchange="toggleCol('col-partos',this.checked)"> Partos</label>
@@ -332,6 +333,7 @@ tr:hover td{background:var(--brand-light)}
           <th class="col-lote" onclick="sortAnimais('lote')">Lote <span class="sort-icon">⇅</span></th>
           <th class="col-pai" style="display:none">Pai</th>
           <th class="col-lote" style="display:none">Lote</th>
+          <th class="col-obs" style="display:none">Observação</th>
           <th class="col-mae" style="display:none">Mãe</th>
           <th class="col-partos" style="display:none" onclick="sortAnimais('partos')">Partos <span class="sort-icon">⇅</span></th>
           <th></th>
@@ -1410,6 +1412,7 @@ function renderAnimais(){
       <td class="col-lote"><span style="font-size:10px;color:var(--text2)">${a.lote||'—'}</span></td>
       <td class="col-pai" style="display:none">${a.pai||'—'}</td>
       <td class="col-lote" style="display:none">${a.lote||'—'}</td>
+      <td class="col-obs" style="display:none">${a.obs||'—'}</td>
       <td class="col-mae" style="display:none">${a.mae||'—'}</td>
       <td class="col-partos" style="display:none">${a.partos||0}</td>
       <td><button class="btn" style="padding:3px 8px;font-size:11px" onclick="abrirEditarAnimal('${a.id.replace(/'/g,"\\'")}')" title="Editar">&#9998;</button></td>
@@ -1596,6 +1599,60 @@ function renderGenealogia(){
   `;
 }
 
+
+// ===== VER ANIMAIS DO PIQUETE =====
+let piqueteVisualizandoNome = null;
+function verAnimaisPiquete(nome){
+  piqueteVisualizandoNome = nome;
+  const animais = ANIMAIS.filter(a=>a.piquete===nome);
+  document.getElementById('ver-piquete-titulo').textContent = `Animais do piquete: ${nome} (${animais.length})`;
+
+  const nF = animais.filter(a=>a.sexo==='F').length;
+  const nM = animais.filter(a=>a.sexo==='M').length;
+  const pesos = animais.map(a=>calcPesoAtual(a.id)).filter(Boolean);
+  const pmedio = pesos.length ? Math.round(pesos.reduce((s,v)=>s+v,0)/pesos.length) : null;
+  document.getElementById('ver-piquete-stats').innerHTML = `
+    <div class="mc" style="flex:1;min-width:90px"><div class="mc-l">Total</div><div class="mc-v">${animais.length}</div></div>
+    <div class="mc" style="flex:1;min-width:90px"><div class="mc-l">Fêmeas</div><div class="mc-v">${nF}</div></div>
+    <div class="mc" style="flex:1;min-width:90px"><div class="mc-l">Machos</div><div class="mc-v">${nM}</div></div>
+    ${pmedio?`<div class="mc" style="flex:1;min-width:90px"><div class="mc-l">Peso médio</div><div class="mc-v">${pmedio} kg</div></div>`:''}
+  `;
+
+  const catBadgeL = catBadge;
+  document.getElementById('tbody-ver-piquete').innerHTML = animais.length ? animais.map(a=>{
+    const peso = calcPesoAtual(a.id);
+    const cat = categoriaAuto(a);
+    return `<tr>
+      <td><strong>${a.id}</strong></td>
+      <td>${a.nome||'—'}</td>
+      <td>${a.sexo==='F'?'F':'M'}</td>
+      <td>${calcIdade(a.nasc)}</td>
+      <td>${peso?peso+' kg':'—'}</td>
+      <td><span class="badge ${catBadgeL[cat]||'bgr'}">${cat}</span></td>
+      <td>${a.cat||'—'}</td>
+      <td>${a.lote?(LOTES.find(l=>l.id===a.lote)?.nome||'—'):'—'}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="8" class="empty">Nenhum animal neste piquete.</td></tr>';
+
+  document.getElementById('modal-ver-piquete').style.display='flex';
+}
+
+function exportarAnimaisPiquete(){
+  if(!piqueteVisualizandoNome) return;
+  const animais = ANIMAIS.filter(a=>a.piquete===piqueteVisualizandoNome);
+  const dados = animais.map(a=>({
+    'Brinco': a.id, 'Nome': a.nome||'', 'Raça': a.raca||'',
+    'Sexo': a.sexo==='F'?'Fêmea':'Macho',
+    'Nascimento': a.nasc||'', 'Idade': calcIdade(a.nasc),
+    'Peso (kg)': calcPesoAtual(a.id)||'',
+    'Categoria': categoriaAuto(a), 'Situação': a.cat||'',
+    'Lote': a.lote?(LOTES.find(l=>l.id===a.lote)?.nome||''):'',
+    'Observação': a.obs||'',
+  }));
+  exportarCSV(dados, `animais_piquete_${piqueteVisualizandoNome.replace(/[^a-z0-9]/gi,'_')}.csv`);
+}
+
+
 function renderPiquetes(){
   document.getElementById('grid-pq').innerHTML=PIQUETES.length?PIQUETES.map(p=>{
     const n=ANIMAIS.filter(a=>a.piquete===p.nome).length;
@@ -1611,7 +1668,10 @@ function renderPiquetes(){
       <div style="font-size:11px;color:#888">de ${p.cap||'—'} cap.${p.ha?' · '+p.ha+' ha':''}</div>
       <div class="pq-bar"><div class="pq-fill" style="width:${pctBar}%;background:${cor}"></div></div>
       <div style="font-size:10px;color:#aaa;margin-top:4px">${p.cap?pct+'% ocupado':'Capacidade não definida'}</div>
-      <button class="btn" style="margin-top:10px;width:100%;justify-content:center;font-size:11px" onclick="abrirEditarPiquete('${p.nome.replace(/'/g,"\\'")}')">&#9998; Editar</button>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <button class="btn" style="flex:1;justify-content:center;font-size:11px" onclick="verAnimaisPiquete('${p.nome.replace(/'/g,"\\'")}')">&#128065; Ver animais</button>
+        <button class="btn" style="font-size:11px;padding:6px 8px" onclick="abrirEditarPiquete('${p.nome.replace(/'/g,"\\'")}')">&#9998;</button>
+      </div>
     </div>`;
   }).join(''):`<div class="empty">Nenhum piquete cadastrado.</div>`;
 }
@@ -2015,9 +2075,9 @@ async function removerTodosDoLote(){
 // ── CRIAR / EDITAR LOTE ──
 function resetFormLote(){
   loteEditandoId = null;
-  document.getElementById('fl-nome').value='';
-  document.getElementById('fl-desc').value='';
-  document.getElementById('fl-ativo').value='true';
+  document.getElementById('lote-nome').value='';
+  document.getElementById('lote-desc').value='';
+  document.getElementById('lote-ativo').value='true';
   document.getElementById('modal-lote-titulo').textContent='Novo lote';
 }
 
@@ -2025,18 +2085,18 @@ function editarLote(id){
   const l = LOTES.find(x=>x.id===id);
   if(!l) return;
   loteEditandoId = id;
-  document.getElementById('fl-nome').value = l.nome;
-  document.getElementById('fl-desc').value = l.descricao||'';
-  document.getElementById('fl-ativo').value = String(l.ativo);
+  document.getElementById('lote-nome').value = l.nome;
+  document.getElementById('lote-desc').value = l.descricao||'';
+  document.getElementById('lote-ativo').value = String(l.ativo);
   document.getElementById('modal-lote-titulo').textContent = 'Editar lote — ' + l.nome;
   abrirModal('modal-lote');
 }
 
 async function salvarLote(){
-  const nome = document.getElementById('fl-nome').value.trim();
+  const nome = document.getElementById('lote-nome').value.trim();
   if(!nome){alert('Nome é obrigatório.');return;}
-  const ativo = document.getElementById('fl-ativo').value === 'true';
-  const desc = document.getElementById('fl-desc').value.trim()||null;
+  const ativo = document.getElementById('lote-ativo').value === 'true';
+  const desc = document.getElementById('lote-desc').value.trim()||null;
 
   if(loteEditandoId){
     const {error} = await sb.from('lotes').update({nome,descricao:desc,ativo}).eq('id',loteEditandoId);
@@ -4133,6 +4193,7 @@ function sortAnimais(field) {
       <td class="col-lote"><span style="font-size:10px;color:var(--text2)">${a.lote||'—'}</span></td>
       <td class="col-pai" style="display:none">${a.pai||'—'}</td>
       <td class="col-lote" style="display:none">${a.lote||'—'}</td>
+      <td class="col-obs" style="display:none">${a.obs||'—'}</td>
       <td class="col-mae" style="display:none">${a.mae||'—'}</td>
       <td class="col-partos" style="display:none">${a.partos||0}</td>
       <td><button class="btn" style="padding:3px 8px;font-size:11px" onclick="abrirEditarAnimal('${a.id.replace(/'/g,"\\'")}')">&#9998;</button></td>
@@ -4751,6 +4812,28 @@ verificarSessao();
     <div class="modal-btns" style="margin-top:14px">
       <button class="btn btn-s" onclick="exportarEventoHist()">&#8595; Exportar Excel</button>
       <button class="btn" onclick="fecharModal('modal-evento-hist')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL VER ANIMAIS DO PIQUETE -->
+<div id="modal-ver-piquete" class="overlay" style="display:none">
+  <div class="modal" style="max-width:720px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <h3 id="ver-piquete-titulo" style="margin:0">Animais do piquete</h3>
+      <button class="btn btn-s" onclick="exportarAnimaisPiquete()" style="font-size:12px">&#8595; Exportar Excel</button>
+    </div>
+    <div id="ver-piquete-stats" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+    <div class="tw" style="max-height:400px;overflow-y:auto">
+      <table><thead><tr>
+        <th>Brinco</th><th>Nome</th><th>Sexo</th><th>Idade</th><th>Peso</th><th>Categoria</th><th>Situação</th><th>Lote</th>
+      </tr></thead>
+      <tbody id="tbody-ver-piquete"></tbody>
+      </table>
+    </div>
+    <div class="modal-btns" style="margin-top:14px">
+      <button class="btn" onclick="fecharModal('modal-ver-piquete')">Fechar</button>
     </div>
   </div>
 </div>
