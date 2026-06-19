@@ -205,19 +205,6 @@ tr:hover td{background:var(--brand-light)}
     </div>
 
     <!-- CONFIGURAÇÃO DO ANO PECUÁRIO -->
-    <div class="card" style="margin-bottom:14px">
-      <div class="ch">
-        <span class="ct">&#128198; Ano pecuário</span>
-        <button class="btn" onclick="salvarAnoPecuario()" style="font-size:11px">&#10003; Salvar período</button>
-      </div>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-        <div><div class="fl">Início</div><input class="fi" type="date" id="ap-inicio" style="width:150px"></div>
-        <div><div class="fl">Fim</div><input class="fi" type="date" id="ap-fim" style="width:150px"></div>
-        <div id="ap-label" style="font-size:12px;color:var(--text2);margin-top:16px"></div>
-      </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:8px">Define o período usado nos indicadores de produção e reprodução do Dashboard.</div>
-    </div>
-
     <!-- INDICADORES PRINCIPAIS -->
     <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Rebanho atual</div>
     <div class="metrics" id="dash-metrics"><div class="loading">Carregando dados...</div></div>
@@ -378,7 +365,7 @@ tr:hover td{background:var(--brand-light)}
     <div class="card">
       <div class="ch"><span class="ct">Histórico de inseminações</span></div>
       <div class="tw">
-        <table><thead><tr><th>Data</th><th>Fêmea</th><th>Touro / Sêmen</th><th>Tipo</th><th>Técnico</th><th>DG Previsto</th><th>Resultado</th><th></th></tr></thead>
+        <table><thead><tr><th>Data</th><th>Fêmea</th><th>Touro / Sêmen</th><th>Tipo</th><th>Data exposição</th><th>Data diagnóstico</th><th>Previsão parto</th><th>Resultado</th><th></th></tr></thead>
         <tbody id="tbody-ins"><tr><td colspan="8" class="loading">Carregando...</td></tr></tbody></table>
       </div>
     </div>
@@ -1554,17 +1541,34 @@ async function salvarPeso(){
 function renderIns(){
   document.getElementById('tbody-ins').innerHTML=INSEMINACOES.length?INSEMINACOES.map(i=>{
     const an=ANIMAIS.find(a=>a.id===i.femea);
-    return`<tr><td>${fmtData(i.data)}</td><td>${i.femea}${an&&an.nome?' — '+an.nome:''}</td><td>${i.touro}</td><td>${(i.tipo||'').split('(')[0].trim()}</td><td>${i.tecnico||'—'}</td><td>${i.data?fmtData(addDias(i.data,30)):'—'}</td><td><span class="badge ${resBadge[i.resultado]||'ba'}">${i.resultado}</span></td><td><button class="btn btn-danger" style="padding:3px 8px;font-size:11px" onclick="atualizarDG('${i.id}')">DG</button></td></tr>`;
-  }).join(''):`<tr><td colspan="8" class="empty">Nenhuma inseminação registrada.</td></tr>`;
+    const dataExp = i.data_exposicao || i.data;
+    const previsaoParto = dataExp ? fmtData(addDias(dataExp, 285)) : '—';
+    return`<tr><td>${fmtData(i.data)}</td><td>${i.femea}${an&&an.nome?' — '+an.nome:''}</td><td>${i.touro}</td><td>${(i.tipo||'').split('(')[0].trim()}</td><td>${dataExp?fmtData(dataExp):'—'}</td><td>${i.data_diagnostico?fmtData(i.data_diagnostico):'—'}</td><td>${previsaoParto}</td><td><span class="badge ${resBadge[i.resultado]||'ba'}">${i.resultado}</span></td><td><button class="btn btn-danger" style="padding:3px 8px;font-size:11px" onclick="atualizarDG('${i.id}')">DG</button></td></tr>`;
+  }).join(''):`<tr><td colspan="9" class="empty">Nenhuma inseminação registrada.</td></tr>`;
 }
 
-async function atualizarDG(id){
-  const res=prompt('Resultado do DG:\n1 = Prenhe\n2 = Não pegou\n(Enter para cancelar)');
-  if(!res)return;
-  const resultado=res==='1'?'Prenhe':res==='2'?'Não pegou':null;
-  if(!resultado){alert('Digite 1 ou 2.');return;}
-  await sb.from('inseminacoes').update({resultado}).eq('id',id);
-  await carregarTudo();renderIns();
+let dgInseminacaoId = null;
+function atualizarDG(id){
+  dgInseminacaoId = id;
+  const ins = INSEMINACOES.find(x=>x.id===id);
+  const an = ins ? ANIMAIS.find(a=>a.id===ins.femea) : null;
+  document.getElementById('dg-titulo').textContent = ins ? `DG — fêmea ${ins.femea}${an&&an.nome?' ('+an.nome+')':''}` : 'Diagnóstico de gestação';
+  // Pré-preenche resultado e data se já existirem
+  document.getElementById('dg-resultado').value = (ins && ins.resultado && ins.resultado!=='Aguardando DG') ? ins.resultado : 'Prenhe';
+  document.getElementById('dg-data').value = (ins && ins.data_diagnostico) ? ins.data_diagnostico : new Date().toISOString().split('T')[0];
+  document.getElementById('modal-dg').style.display = 'flex';
+}
+
+async function salvarDG(){
+  if(!dgInseminacaoId) return;
+  const resultado = document.getElementById('dg-resultado').value;
+  const dataDiag = document.getElementById('dg-data').value;
+  if(!dataDiag){ alert('Informe a data em que o diagnóstico foi realizado.'); return; }
+  await sb.from('inseminacoes').update({resultado, data_diagnostico:dataDiag}).eq('id',dgInseminacaoId);
+  await registrarAudit('dg_inseminacao','inseminacoes',dgInseminacaoId,{resultado, data:dataDiag});
+  fecharModal('modal-dg');
+  await carregarTudo();
+  renderIns();
 }
 
 async function salvarIns(){
@@ -4336,8 +4340,9 @@ function exportarInseminacoes() {
       'Nome Fêmea': an ? (an.nome || '') : '',
       'Touro / Sêmen': i.touro || '',
       'Tipo': i.tipo || '',
-      'Técnico': i.tecnico || '',
-      'DG Previsto': i.data ? fmtData(addDias(i.data, 30)) : '',
+      'Data Exposição': fmtData(i.data_exposicao || i.data),
+      'Data Diagnóstico': i.data_diagnostico ? fmtData(i.data_diagnostico) : '',
+      'Previsão Parto': (i.data_exposicao||i.data) ? fmtData(addDias(i.data_exposicao||i.data, 285)) : '',
       'Resultado': i.resultado || '',
     };
   });
@@ -4888,6 +4893,30 @@ verificarSessao();
     </div>
     <div class="modal-btns" style="margin-top:14px">
       <button class="btn" onclick="fecharModal('modal-ver-piquete')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL DIAGNÓSTICO DE GESTAÇÃO -->
+<div id="modal-dg" class="overlay" style="display:none">
+  <div class="modal" style="max-width:420px">
+    <h3 id="dg-titulo">Diagnóstico de gestação</h3>
+    <div class="fg">
+      <div><div class="fl">Resultado *</div>
+        <select class="fi" id="dg-resultado">
+          <option value="Prenhe">Prenhe (Confirmada)</option>
+          <option value="Não pegou">Não pegou (Improdutiva)</option>
+        </select>
+      </div>
+      <div><div class="fl">Data do diagnóstico *</div>
+        <input class="fi" type="date" id="dg-data">
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-top:8px">Informe a data em que o DG foi realizado no campo, não a data de hoje.</div>
+    <div class="modal-btns" style="margin-top:16px">
+      <button class="btn btn-s" onclick="salvarDG()">&#10003; Salvar DG</button>
+      <button class="btn" onclick="fecharModal('modal-dg')">Cancelar</button>
     </div>
   </div>
 </div>
