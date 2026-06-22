@@ -1025,7 +1025,15 @@ function categoriaAuto(animal){
       const partosOk = partos >= (regra.partos_min||0) && partos <= (regra.partos_max||99);
       const situacoes = regra.situacoes || [];
       const situOk = !situacoes.length || situacoes.includes('') || situacoes.includes(situacao);
-      if(sexoOk && idadeOk && partosOk && situOk) return regra.nome;
+      if(sexoOk && idadeOk && partosOk && situOk){
+        // TRAVA DE SEGURANÇA: uma fêmea que já pariu nunca é Novilha/Bezerra,
+        // mesmo que uma regra mal configurada diga o contrário
+        const nomeRegra = (regra.nome||'').toLowerCase();
+        if(sexo==='F' && partos>=1 && (nomeRegra.includes('novilha') || nomeRegra.includes('bezerra'))){
+          break; // ignora a regra errada e cai no fallback correto abaixo
+        }
+        return regra.nome;
+      }
     }
   }
   // Fallback hardcoded
