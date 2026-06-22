@@ -127,11 +127,12 @@ tr:hover td{background:var(--brand-light)}
 .multi-filtro{position:relative;display:inline-block}
 .mf-btn{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:14px;color:var(--text);min-width:140px;text-align:left;white-space:nowrap}
 .mf-btn:hover{border-color:var(--brand)}
-.mf-panel{display:none;position:absolute;top:100%;left:0;z-index:100;background:var(--bg);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.15);margin-top:4px;max-height:280px;overflow-y:auto;min-width:200px;padding:6px}
+.mf-panel{display:none;position:absolute;top:100%;left:0;z-index:100;background:var(--bg);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.15);margin-top:4px;max-height:300px;overflow-y:auto;min-width:240px;padding:6px}
 .mf-panel.aberto{display:block}
-.mf-panel label{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap}
+.mf-panel label{display:flex;align-items:center;justify-content:flex-start;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--text);text-align:left;margin:0}
 .mf-panel label:hover{background:var(--bg3)}
-.mf-panel input[type=checkbox]{margin:0}
+.mf-panel label input[type=checkbox]{flex:0 0 auto!important;width:16px;height:16px;min-width:16px;margin:0;cursor:pointer}
+.mf-panel label span{flex:1;text-align:left}
 </style>
 </head>
 <body>
@@ -1470,7 +1471,7 @@ function montarPainelMulti(tipo, opcoes){
     const label = (typeof o==='object') ? o.label : o;
     const checked = _multiFiltros[tipo].includes(val) ? 'checked' : '';
     const v = String(val).replace(/"/g,'&quot;');
-    return `<label><input type="checkbox" value="${v}" ${checked} onchange="toggleOpcaoMulti('${tipo}', this.value, this.checked)"> ${label}</label>`;
+    return `<label><input type="checkbox" value="${v}" ${checked} onchange="toggleOpcaoMulti('${tipo}', this.value, this.checked)"><span>${label}</span></label>`;
   }).join('') || '<div style="padding:8px;color:var(--text3);font-size:12px">Nenhuma opção</div>';
 }
 
