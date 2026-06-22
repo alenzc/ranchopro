@@ -185,7 +185,6 @@ tr:hover td{background:var(--brand-light)}
   <button class="nb" onclick="nav('manejos',this)">&#9632; Manejos</button>
   <button class="nb" onclick="nav('sanidade',this)">&#9632; Sanidade</button>
   <button class="nb" onclick="nav('genetica',this)">&#9632; Genética</button>
-  <button class="nb" onclick="nav('genetica',this)">&#9632; Genética</button>
   <button class="nb" onclick="nav('config',this)">&#9881; Configurações</button>
 </div>
 
@@ -490,79 +489,6 @@ tr:hover td{background:var(--brand-light)}
           <th>Medicamento</th><th>Ações</th>
         </tr></thead>
         <tbody id="tbody-san-eventos"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div id="sec-genetica" class="sec">
-    <div class="sec-header">
-      <span class="sec-title">Seleção Genética</span>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn" onclick="exportarGenetica()">&#8595; Exportar Excel</button>
-      </div>
-    </div>
-
-    <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.6">
-      <strong>Como funciona:</strong> o ranking usa o <strong>P205</strong> (peso ajustado para 205 dias de idade), que permite comparar bezerros de idades diferentes de forma justa.
-      Peso ao nascer considerado: <strong>32 kg</strong> (padrão Nelore). Quanto maior o P205 médio, melhor o desempenho da progênie.
-    </div>
-
-    <!-- Sub-abas -->
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-      <button class="btn btn-p" id="gen-tab-matrizes" onclick="genSetTab('matrizes')">Matrizes</button>
-      <button class="btn" id="gen-tab-touros" onclick="genSetTab('touros')">Touros / Sêmen</button>
-      <button class="btn" id="gen-tab-combinacoes" onclick="genSetTab('combinacoes')">Combinações Mãe × Touro</button>
-    </div>
-
-    <div class="sr">
-      <input type="number" id="gen-min-filhos" value="1" min="1" onchange="renderGenetica()" style="width:160px" title="Mínimo de filhos">
-      <span style="font-size:12px;color:var(--text2);align-self:center">filhos mínimos para entrar no ranking</span>
-    </div>
-
-    <!-- MATRIZES -->
-    <div id="gen-view-matrizes" class="card">
-      <div class="ch">
-        <span class="ct">Ranking de Matrizes</span>
-        <span id="gen-matrizes-resumo" style="font-size:12px;color:var(--text2)"></span>
-      </div>
-      <div class="tw">
-        <table><thead><tr>
-          <th>#</th><th>Matriz</th><th>Nome</th><th>Filhos desmamados</th>
-          <th>P205 médio</th><th>P205 melhor</th><th>P205 pior</th><th>Classificação</th>
-        </tr></thead>
-        <tbody id="tbody-gen-matrizes"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- TOUROS -->
-    <div id="gen-view-touros" class="card" style="display:none">
-      <div class="ch">
-        <span class="ct">Ranking de Touros / Sêmen</span>
-        <span id="gen-touros-resumo" style="font-size:12px;color:var(--text2)"></span>
-      </div>
-      <div class="tw">
-        <table><thead><tr>
-          <th>#</th><th>Touro / Sêmen</th><th>Filhos desmamados</th>
-          <th>P205 médio</th><th>P205 melhor</th><th>P205 pior</th><th>Classificação</th>
-        </tr></thead>
-        <tbody id="tbody-gen-touros"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- COMBINAÇÕES -->
-    <div id="gen-view-combinacoes" class="card" style="display:none">
-      <div class="ch">
-        <span class="ct">Melhores Combinações Mãe × Touro</span>
-        <span id="gen-comb-resumo" style="font-size:12px;color:var(--text2)"></span>
-      </div>
-      <div class="tw">
-        <table><thead><tr>
-          <th>#</th><th>Matriz</th><th>Touro / Sêmen</th><th>Filhos</th><th>P205 médio</th>
-        </tr></thead>
-        <tbody id="tbody-gen-combinacoes"></tbody>
         </table>
       </div>
     </div>
