@@ -123,6 +123,15 @@ tr:hover td{background:var(--brand-light)}
   .nav{padding:0 8px}
   .topbar{padding:8px 12px}
 }
+
+.multi-filtro{position:relative;display:inline-block}
+.mf-btn{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:14px;color:var(--text);min-width:140px;text-align:left;white-space:nowrap}
+.mf-btn:hover{border-color:var(--brand)}
+.mf-panel{display:none;position:absolute;top:100%;left:0;z-index:100;background:var(--bg);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.15);margin-top:4px;max-height:280px;overflow-y:auto;min-width:200px;padding:6px}
+.mf-panel.aberto{display:block}
+.mf-panel label{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap}
+.mf-panel label:hover{background:var(--bg3)}
+.mf-panel input[type=checkbox]{margin:0}
 </style>
 </head>
 <body>
@@ -255,30 +264,10 @@ tr:hover td{background:var(--brand-light)}
   <div id="sec-animais" class="sec">
     <div class="sr">
       <input type="text" placeholder="&#128269; Buscar brinco, nome ou raça..." id="busca" oninput="filtrarAnimais()" style="min-width:200px">
-      <select id="filtro-status" onchange="filtrarAnimais()">
-        <option value="">Todas as categorias</option>
-        <option>Vazia</option>
-        <option>Exposta</option>
-        <option>Prenhe</option>
-        <option>Vazia com cria ao pé</option>
-        <option>Exposta com cria ao pé</option>
-        <option>Prenhe com cria ao pé</option>
-      </select>
-      <select id="filtro-situacao" onchange="filtrarAnimais()">
-        <option value="">Todas as situações</option>
-        <option>Vazia</option>
-        <option>Exposta</option>
-        <option>Prenhe</option>
-        <option>Vazia com cria ao pé</option>
-        <option>Exposta com cria ao pé</option>
-        <option>Prenhe com cria ao pé</option>
-      </select>
-      <select id="filtro-piquete-ani" onchange="filtrarAnimais()">
-        <option value="">Todos os piquetes</option>
-      </select>
-      <select id="filtro-lote-ani" onchange="filtrarAnimais()">
-        <option value="">Todos os lotes</option>
-      </select>
+      <div class="multi-filtro" id="mf-categoria"><button type="button" class="mf-btn" onclick="toggleMultiFiltro('categoria')">Todas as categorias <span style="opacity:0.6">▾</span></button><div class="mf-panel" id="mf-panel-categoria"></div></div>
+      <div class="multi-filtro" id="mf-situacao"><button type="button" class="mf-btn" onclick="toggleMultiFiltro('situacao')">Todas as situações <span style="opacity:0.6">▾</span></button><div class="mf-panel" id="mf-panel-situacao"></div></div>
+      <div class="multi-filtro" id="mf-piquete"><button type="button" class="mf-btn" onclick="toggleMultiFiltro('piquete')">Todos os piquetes <span style="opacity:0.6">▾</span></button><div class="mf-panel" id="mf-panel-piquete"></div></div>
+      <div class="multi-filtro" id="mf-lote"><button type="button" class="mf-btn" onclick="toggleMultiFiltro('lote')">Todos os lotes <span style="opacity:0.6">▾</span></button><div class="mf-panel" id="mf-panel-lote"></div></div>
       <select id="filtro-sexo" onchange="filtrarAnimais()">
         <option value="">M + F</option>
         <option value="F">Fêmeas</option>
@@ -1446,6 +1435,141 @@ function syncAnimaisScroll(){
 
 
 
+
+
+// ===== FILTROS MULTI-SELEÇÃO (aba Animais) =====
+const _multiFiltros = { categoria:[], situacao:[], piquete:[], lote:[] };
+const _opcoesFixas = {
+  categoria: ['Vazia','Exposta','Prenhe','Vazia com cria ao pé','Exposta com cria ao pé','Prenhe com cria ao pé','Bezerra','Bezerro','Novilha Vazia','Novilha Prenhe','Primípara','Primípara Prenhe','Multípara','Multípara Prenhe','Recria','Touro Reprodutor'],
+  situacao: ['Vazia','Exposta','Prenhe','Vazia com cria ao pé','Exposta com cria ao pé','Prenhe com cria ao pé']
+};
+
+function preencherMultiFiltros(){
+  // Categoria: usa categorias reais calculadas + fixas
+  const cats = new Set(_opcoesFixas.categoria);
+  ANIMAIS.forEach(a=>cats.add(categoriaAuto(a)));
+  montarPainelMulti('categoria', Array.from(cats).filter(Boolean).sort());
+
+  // Situação
+  const sits = new Set(_opcoesFixas.situacao);
+  ANIMAIS.forEach(a=>{ if(a.cat) sits.add(a.cat); });
+  montarPainelMulti('situacao', Array.from(sits).filter(Boolean).sort());
+
+  // Piquetes
+  montarPainelMulti('piquete', PIQUETES.map(p=>p.nome).filter(Boolean).sort());
+
+  // Lotes (usa id->nome)
+  montarPainelMulti('lote', LOTES.map(l=>({val:l.id, label:l.nome})));
+}
+
+function montarPainelMulti(tipo, opcoes){
+  const panel = document.getElementById('mf-panel-'+tipo);
+  if(!panel) return;
+  panel.innerHTML = opcoes.map(o=>{
+    const val = (typeof o==='object') ? o.val : o;
+    const label = (typeof o==='object') ? o.label : o;
+    const checked = _multiFiltros[tipo].includes(val) ? 'checked' : '';
+    const v = String(val).replace(/"/g,'&quot;');
+    return `<label><input type="checkbox" value="${v}" ${checked} onchange="toggleOpcaoMulti('${tipo}', this.value, this.checked)"> ${label}</label>`;
+  }).join('') || '<div style="padding:8px;color:var(--text3);font-size:12px">Nenhuma opção</div>';
+}
+
+function toggleMultiFiltro(tipo){
+  const panel = document.getElementById('mf-panel-'+tipo);
+  const jaAberto = panel.classList.contains('aberto');
+  // Fecha todos
+  document.querySelectorAll('.mf-panel').forEach(p=>p.classList.remove('aberto'));
+  if(!jaAberto) panel.classList.add('aberto');
+}
+
+function toggleOpcaoMulti(tipo, valor, checked){
+  if(checked){ if(!_multiFiltros[tipo].includes(valor)) _multiFiltros[tipo].push(valor); }
+  else { _multiFiltros[tipo] = _multiFiltros[tipo].filter(v=>v!==valor); }
+  atualizarBotaoMulti(tipo);
+  renderAnimais();
+}
+
+function atualizarBotaoMulti(tipo){
+  const btn = document.querySelector('#mf-'+tipo+' .mf-btn');
+  const sel = _multiFiltros[tipo];
+  const labels = {categoria:'categorias', situacao:'situações', piquete:'piquetes', lote:'lotes'};
+  if(!sel.length){ btn.innerHTML = `Todas as ${labels[tipo]} <span style="opacity:0.6">▾</span>`; }
+  else if(sel.length===1){
+    let txt = sel[0];
+    if(tipo==='lote'){ const l=LOTES.find(x=>x.id===sel[0]); txt=l?l.nome:sel[0]; }
+    btn.innerHTML = `${txt} <span style="opacity:0.6">▾</span>`;
+  }
+  else { btn.innerHTML = `${sel.length} selecionados <span style="opacity:0.6">▾</span>`; }
+}
+
+// Fecha painéis ao clicar fora
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('.multi-filtro')){
+    document.querySelectorAll('.mf-panel').forEach(p=>p.classList.remove('aberto'));
+  }
+});
+
+// ===== REORDENAR COLUNAS POR ARRASTO (aba Animais) =====
+let _dragColIdx = null;
+function initColunaDragDrop(){
+  const table = document.getElementById('tab-animais');
+  if(!table) return;
+  const ths = table.querySelectorAll('thead th');
+  ths.forEach((th, idx)=>{
+    // Não permite arrastar a última coluna (ações)
+    if(idx === ths.length-1) return;
+    th.setAttribute('draggable','true');
+    th.addEventListener('dragstart', (e)=>{
+      _dragColIdx = idx;
+      e.dataTransfer.effectAllowed='move';
+      th.style.opacity='0.4';
+    });
+    th.addEventListener('dragend', ()=>{ th.style.opacity=''; });
+    th.addEventListener('dragover', (e)=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; th.style.borderLeft='3px solid var(--brand)'; });
+    th.addEventListener('dragleave', ()=>{ th.style.borderLeft=''; });
+    th.addEventListener('drop', (e)=>{
+      e.preventDefault();
+      th.style.borderLeft='';
+      if(_dragColIdx===null || _dragColIdx===idx) return;
+      moverColuna(_dragColIdx, idx);
+      _dragColIdx=null;
+    });
+  });
+}
+
+function moverColuna(from, to){
+  const table = document.getElementById('tab-animais');
+  // Move o cabeçalho
+  const headRow = table.querySelector('thead tr');
+  const ths = Array.from(headRow.children);
+  const movedTh = ths[from];
+  if(to>from) headRow.insertBefore(movedTh, ths[to].nextSibling);
+  else headRow.insertBefore(movedTh, ths[to]);
+
+  // Move as células de cada linha do corpo
+  table.querySelectorAll('tbody tr').forEach(tr=>{
+    // pula linhas de detalhe expandido (têm colspan)
+    if(tr.classList.contains('detalhe-animal-row')) return;
+    const tds = Array.from(tr.children);
+    if(tds.length <= Math.max(from,to)) return;
+    const movedTd = tds[from];
+    if(to>from) tr.insertBefore(movedTd, tds[to].nextSibling);
+    else tr.insertBefore(movedTd, tds[to]);
+  });
+
+  // Salva a ordem das colunas no localStorage
+  salvarOrdemColunas();
+}
+
+function salvarOrdemColunas(){
+  const table = document.getElementById('tab-animais');
+  const ordem = Array.from(table.querySelectorAll('thead th')).map(th=>{
+    const cls = Array.from(th.classList).find(c=>c.startsWith('col-'));
+    return cls || th.textContent.trim().substring(0,10);
+  });
+  try{ localStorage.setItem('ordem_colunas_animais', JSON.stringify(ordem)); }catch(e){}
+}
+
 // ===== PAINEL EXPANSÍVEL DO ANIMAL =====
 let _animalExpandido = null;
 function toggleDetalheAnimal(id, event){
@@ -1555,20 +1679,18 @@ function montarDetalheAnimal(a){
 
 let animaisFiltrados=[];
 function renderAnimais(){
+  if(document.getElementById('mf-panel-categoria') && !document.getElementById('mf-panel-categoria').innerHTML){ preencherMultiFiltros(); }
   const q=(document.getElementById('busca').value||'').toLowerCase();
-  const st=document.getElementById('filtro-status').value;
-  const situ=(document.getElementById('filtro-situacao').value||'').toLowerCase();
-  const piq=(document.getElementById('filtro-piquete-ani').value||'');
   const sexF=(document.getElementById('filtro-sexo').value||'');
-  const loteF=(document.getElementById('filtro-lote-ani')?document.getElementById('filtro-lote-ani').value||'':'');
+  const fCat=_multiFiltros.categoria, fSitu=_multiFiltros.situacao, fPiq=_multiFiltros.piquete, fLote=_multiFiltros.lote;
   animaisFiltrados=ANIMAIS.filter(a=>{
     const match=!q||(a.id+(a.nome||'')+(a.raca||'')).toLowerCase().includes(q);
     const catAuto=categoriaAuto(a);
-    const catOk=!st||catAuto===st||a.cat===st;
-    const situOk=!situ||(a.cat||'').toLowerCase()===situ;
-    const piqOk=!piq||a.piquete===piq;
+    const catOk=!fCat.length||fCat.includes(catAuto)||fCat.includes(a.cat);
+    const situOk=!fSitu.length||fSitu.includes(a.cat);
+    const piqOk=!fPiq.length||fPiq.includes(a.piquete);
     const sexOk=!sexF||a.sexo===sexF;
-    const loteOk=!loteF||a.lote===loteF;
+    const loteOk=!fLote.length||fLote.includes(a.lote);
     return match&&catOk&&situOk&&piqOk&&sexOk&&loteOk;
   });
   document.getElementById('count-animais').textContent=`Exibindo ${animaisFiltrados.length} de ${ANIMAIS.length} animais`;
@@ -1597,6 +1719,7 @@ function renderAnimais(){
     <tr class="detalhe-animal-row" id="detalhe-row-${a.id}" style="display:none"><td colspan="16" style="padding:0;background:var(--bg3)"><div id="detalhe-animal-${a.id}" style="padding:16px"></div></td></tr>`;
   }).join(''):`<tr><td colspan="8" class="empty">Nenhum animal encontrado.</td></tr>`;
   setTimeout(syncAnimaisScroll, 50);
+  setTimeout(initColunaDragDrop, 100);
 }
 function filtrarAnimais(){renderAnimais();}
 
