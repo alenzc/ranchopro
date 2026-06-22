@@ -300,10 +300,10 @@ tr:hover td{background:var(--brand-light)}
       <label><input type="checkbox" checked onchange="toggleCol('col-piquete',this.checked)"> Piquete</label>
       <label><input type="checkbox" checked onchange="toggleCol('col-cat',this.checked)"> Categoria</label>
       <label><input type="checkbox" checked onchange="toggleCol('col-situacao',this.checked)"> Situação</label>
-      <label><input type="checkbox" onchange="toggleCol('col-pai',this.checked)"> Pai</label>
+      <label><input type="checkbox" checked onchange="toggleCol('col-pai',this.checked)"> Pai</label>
       <label><input type="checkbox" onchange="toggleCol('col-lote',this.checked)"> Lote</label>
       <label><input type="checkbox" checked onchange="toggleCol('col-obs',this.checked)"> Observação</label>
-      <label><input type="checkbox" onchange="toggleCol('col-mae',this.checked)"> Mãe</label>
+      <label><input type="checkbox" checked onchange="toggleCol('col-mae',this.checked)"> Mãe</label>
       <label><input type="checkbox" checked onchange="toggleCol('col-lote',this.checked)"> Lote</label>
       <label><input type="checkbox" onchange="toggleCol('col-partos',this.checked)"> Partos</label>
     </div>
@@ -323,9 +323,9 @@ tr:hover td{background:var(--brand-light)}
           <th class="col-cat">Categoria</th>
           <th class="col-situacao" onclick="sortAnimais('cat')">Situação <span class="sort-icon">⇅</span></th>
           <th class="col-lote" onclick="sortAnimais('lote')">Lote <span class="sort-icon">⇅</span></th>
-          <th class="col-pai" style="display:none">Pai</th>
+          <th class="col-pai">Pai</th>
           <th class="col-obs">Observação</th>
-          <th class="col-mae" style="display:none">Mãe</th>
+          <th class="col-mae">Mãe</th>
           <th class="col-partos" style="display:none" onclick="sortAnimais('partos')">Partos <span class="sort-icon">⇅</span></th>
           <th></th>
         </tr></thead>
@@ -1003,8 +1003,7 @@ function calcIdade(nasc){
   if(!nasc)return'—';
   const m=calcIdadeMeses(nasc);
   if(m===null)return'—';
-  const a=Math.floor(m/12),rm=m%12;
-  return a>0?`${a}a ${rm}m`:`${m}m`;
+  return `${m}m`;
 }
 function categoriaAuto(animal){
   const m = calcIdadeMeses(animal.nasc);
@@ -1462,7 +1461,7 @@ function toggleDetalheAnimal(id, event){
 function montarDetalheAnimal(a){
   // ── ÚLTIMAS PESAGENS ──
   const pesagens = PESAGENS.filter(p=>p.animal_id===a.id)
-    .sort((x,y)=>(y.data||'').localeCompare(x.data||'')).slice(0,6);
+    .sort((x,y)=>(y.data||'').localeCompare(x.data||'')).slice(0,3);
   let pesagensHtml;
   if(pesagens.length){
     // calcula GMD entre pesagens consecutivas
@@ -1574,9 +1573,9 @@ function renderAnimais(){
       <td class="col-cat"><span class="badge ${catBadge[catDisplay]||'bgr'}">${catDisplay}</span></td>
       <td class="col-situacao"><span class="badge ${situBadge[a.cat]||'bgr'}">${a.cat||'—'}</span></td>
       <td class="col-lote"><span style="font-size:10px;color:var(--text2)">${a.lote||'—'}</span></td>
-      <td class="col-pai" style="display:none">${a.pai||'—'}</td>
+      <td class="col-pai">${a.pai||'—'}</td>
       <td class="col-obs">${a.obs||'—'}</td>
-      <td class="col-mae" style="display:none">${a.mae||'—'}</td>
+      <td class="col-mae">${a.mae||'—'}</td>
       <td class="col-partos" style="display:none">${a.partos||0}</td>
       <td><button class="btn" style="padding:3px 8px;font-size:11px" onclick="event.stopPropagation();abrirEditarAnimal('${a.id.replace(/'/g,"\\'")}')" title="Editar">&#9998;</button></td>
     </tr>
@@ -4718,9 +4717,9 @@ function sortAnimais(field) {
       <td class="col-cat"><span class="badge ${catBadgeL[catDisplay]||'bgr'}">${catDisplay}</span></td>
       <td class="col-situacao"><span class="badge ${situBadge[a.cat]||'bgr'}">${a.cat||'—'}</span></td>
       <td class="col-lote"><span style="font-size:10px;color:var(--text2)">${a.lote||'—'}</span></td>
-      <td class="col-pai" style="display:none">${a.pai||'—'}</td>
+      <td class="col-pai">${a.pai||'—'}</td>
       <td class="col-obs">${a.obs||'—'}</td>
-      <td class="col-mae" style="display:none">${a.mae||'—'}</td>
+      <td class="col-mae">${a.mae||'—'}</td>
       <td class="col-partos" style="display:none">${a.partos||0}</td>
       <td><button class="btn" style="padding:3px 8px;font-size:11px" onclick="event.stopPropagation();abrirEditarAnimal('${a.id.replace(/'/g,"\\'")}')">&#9998;</button></td>
     </tr>
