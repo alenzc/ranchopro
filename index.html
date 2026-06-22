@@ -193,7 +193,6 @@ tr:hover td{background:var(--brand-light)}
   <button class="nb" onclick="nav('mapa',this)">&#9632; Mapa de Rebanho</button>
   <button class="nb" onclick="nav('historico',this)">&#9632; Histórico</button>
   <button class="nb" onclick="nav('manejos',this)">&#9632; Manejos</button>
-  <button class="nb" onclick="nav('sanidade',this)">&#9632; Sanidade</button>
   <button class="nb" onclick="nav('genetica',this)">&#9632; Genética</button>
   <button class="nb" onclick="nav('config',this)">&#9881; Configurações</button>
 </div>
@@ -446,44 +445,6 @@ tr:hover td{background:var(--brand-light)}
     </div>
   </div>
 
-  <div id="sec-sanidade" class="sec">
-    <div class="sec-header">
-      <span class="sec-title">Sanidade & Manejos</span>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-p" onclick="abrirNovoManejoSanitario()">+ Registrar manejo</button>
-        <button class="btn" onclick="abrirDesmameRenumeracao()">&#8635; Desmame c/ renumeração</button>
-        <button class="btn" onclick="abrirGerenciarTipos()">&#9881; Tipos de manejo</button>
-        <button class="btn" onclick="exportarManejosSanitarios()">&#8595; Exportar Excel</button>
-      </div>
-    </div>
-
-    <!-- FILTROS -->
-    <div class="sr">
-      <select id="filtro-san-tipo" onchange="renderSanidade()">
-        <option value="">Todos os tipos</option>
-      </select>
-      <input type="date" id="filtro-san-de" onchange="renderSanidade()" title="Data inicial">
-      <input type="date" id="filtro-san-ate" onchange="renderSanidade()" title="Data final">
-      <input type="text" id="busca-san" placeholder="Buscar brinco ou medicamento..." oninput="renderSanidade()" style="min-width:200px">
-    </div>
-
-    <!-- RESUMO POR EVENTO -->
-    <div class="card">
-      <div class="ch">
-        <span class="ct">Eventos de manejo</span>
-        <span id="san-resumo" style="font-size:12px;color:var(--text2)"></span>
-      </div>
-      <div class="tw">
-        <table><thead><tr>
-          <th>Data</th><th>Manejo</th><th>Categoria</th><th>Animais</th>
-          <th>Medicamento</th><th>Ações</th>
-        </tr></thead>
-        <tbody id="tbody-san-eventos"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
   <div id="sec-genetica" class="sec">
     <div class="sec-header">
       <span class="sec-title">Seleção Genética</span>
@@ -564,10 +525,17 @@ tr:hover td{background:var(--brand-light)}
 
   <div id="sec-manejos" class="sec">
     <div class="sec-header">
-      <span class="sec-title">Manejos em lote</span>
+      <span class="sec-title">Manejos</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="abrirNovoManejoSanitario()">+ Registrar manejo</button>
+        <button class="btn" onclick="abrirDesmameFemea()">&#9792; Desmame Fêmea</button>
+        <button class="btn" onclick="abrirDesmameMacho()">&#9794; Desmame Macho</button>
+        <button class="btn" onclick="abrirGerenciarTipos()">&#9881; Tipos de manejo</button>
+        <button class="btn" onclick="exportarManejosSanitarios()">&#8595; Exportar Excel</button>
+      </div>
     </div>
     <p style="font-size:12px;color:var(--text2);margin-bottom:16px">
-      Selecione um modelo de manejo para atualizar vários animais de uma vez via planilha.
+      Registre manejos individuais ou em lote. Use os modelos abaixo para atualizar vários animais de uma vez via planilha.
     </p>
 
     <!-- CARDS DE MODELOS -->
@@ -708,6 +676,31 @@ tr:hover td{background:var(--brand-light)}
         <tbody id="tbody-manejos-hist"></tbody></table>
       </div>
     </div>
+  
+    <!-- FILTROS E HISTÓRICO DE MANEJOS REGISTRADOS -->
+    <div class="sr" style="margin-top:24px">
+      <select id="filtro-san-tipo" onchange="renderSanidade()">
+        <option value="">Todos os tipos</option>
+      </select>
+      <input type="date" id="filtro-san-de" onchange="renderSanidade()" title="Data inicial">
+      <input type="date" id="filtro-san-ate" onchange="renderSanidade()" title="Data final">
+      <input type="text" id="busca-san" placeholder="Buscar brinco ou medicamento..." oninput="renderSanidade()" style="min-width:200px">
+    </div>
+    <div class="card">
+      <div class="ch">
+        <span class="ct">Manejos registrados</span>
+        <span id="san-resumo" style="font-size:12px;color:var(--text2)"></span>
+      </div>
+      <div class="tw">
+        <table><thead><tr>
+          <th>Data</th><th>Manejo</th><th>Categoria</th><th>Animais</th>
+          <th>Medicamento</th><th>Ações</th>
+        </tr></thead>
+        <tbody id="tbody-san-eventos"></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 
   <div id="sec-historico" class="sec">
@@ -1074,12 +1067,12 @@ function nav(id,btn){
   if(id==='piquetes')renderPiquetes();
   if(id==='lotes'){renderLotes();}
   if(id==='lotes'){renderLotes();preencherSelectsLotes();}
-  if(id==='sanidade'){renderSanidade();preencherSelectsSanidade();}
+
   if(id==='genetica'){renderGenetica();}
   if(id==='genetica'){renderGenetica();}
   if(id==='mapa')renderMapa();
   if(id==='historico')renderHistorico();
-  if(id==='manejos')renderManejosHist();
+  if(id==='manejos'){renderManejosHist();renderSanidade();preencherSelectsSanidade();}
   if(id==='config')renderConfig();
   setTimeout(aplicarOrdenacaoTabelas, 100);
 }
@@ -2932,6 +2925,126 @@ function fallbackCopiar(texto){
 // ===== DESMAME COM RENUMERAÇÃO =====
 let drTab = 'manual';
 let drCSVData = [];
+
+
+// ===== DOIS TIPOS DE DESMAME =====
+// Desmame Macho: apartação + pesagem + renumeração opcional (fluxo completo existente)
+function abrirDesmameMacho(){
+  abrirDesmameRenumeracao();
+  // Ajusta título do modal para deixar claro
+  const titulo = document.querySelector('#modal-desmame-renum h3');
+  if(titulo) titulo.textContent = 'Desmame de Machos (com renumeração opcional)';
+}
+
+// Desmame Fêmea: apartação + pesagem (sem renumeração - fêmeas mantêm o número tatuado)
+function abrirDesmameFemea(){
+  document.getElementById('df-data').value = new Date().toISOString().slice(0,10);
+  document.getElementById('df-arquivo').value = '';
+  document.getElementById('df-preview').textContent = '';
+  dfCSVData = [];
+  renderDfManual();
+  document.getElementById('modal-desmame-femea').style.display = 'flex';
+}
+
+let dfCSVData = [];
+let dfManualRows = [{brinco:'', peso:''}];
+
+function renderDfManual(){
+  const tbody = document.getElementById('tbody-df-manual');
+  if(!tbody) return;
+  tbody.innerHTML = dfManualRows.map((r,i)=>`
+    <tr>
+      <td><input type="text" value="${r.brinco}" oninput="dfManualRows[${i}].brinco=this.value" placeholder="Brinco" style="width:100%"></td>
+      <td><input type="number" value="${r.peso}" oninput="dfManualRows[${i}].peso=this.value" placeholder="Peso kg" style="width:100%"></td>
+      <td><button class="btn" style="padding:2px 8px" onclick="dfManualRows.splice(${i},1);renderDfManual()">&times;</button></td>
+    </tr>`).join('');
+}
+
+function dfAddRow(){ dfManualRows.push({brinco:'',peso:''}); renderDfManual(); }
+
+function dfImportarPlanilha(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const linhas = e.target.result.split('\n').filter(l=>l.trim());
+    dfCSVData = [];
+    // pula cabeçalho
+    for(let i=1;i<linhas.length;i++){
+      const cols = linhas[i].split(/[,;\t]/);
+      const brinco = (cols[0]||'').trim();
+      let peso = '';
+      // procura primeira coluna numérica que seja peso
+      for(let j=1;j<cols.length;j++){
+        const v = parseFloat((cols[j]||'').replace(',','.'));
+        if(v>0){ peso = v; break; }
+      }
+      if(brinco) dfCSVData.push({brinco, peso});
+    }
+    document.getElementById('df-preview').textContent = `${dfCSVData.length} fêmeas detectadas na planilha.`;
+  };
+  reader.readAsText(file);
+}
+
+async function salvarDesmameFemea(){
+  const data = document.getElementById('df-data').value;
+  if(!data){ alert('Informe a data do desmame.'); return; }
+
+  // Junta manual + planilha
+  let registros = dfManualRows.filter(r=>r.brinco.trim());
+  if(dfCSVData.length) registros = registros.concat(dfCSVData);
+  registros = registros.filter(r=>r.brinco);
+
+  if(!registros.length){ alert('Informe pelo menos uma fêmea.'); return; }
+
+  // Cria evento de manejo "Desmame Fêmea"
+  const eventoId = 'msf_'+Date.now();
+  let ok=0, semExistir=[];
+  for(const r of registros){
+    const brinco = String(r.brinco).trim();
+    const animal = ANIMAIS.find(a=>a.id===brinco);
+    if(!animal){ semExistir.push(brinco); continue; }
+
+    // Registra o manejo
+    await sb.from('manejos_sanitarios').insert({
+      id: eventoId+'_'+brinco,
+      evento_id: eventoId,
+      animal_id: brinco,
+      nome_manejo: 'Desmame Fêmea',
+      data: data,
+      medicamento: '',
+      dose: '',
+      obs: r.peso?`Peso desmame: ${r.peso}kg`:''
+    });
+
+    // Atualiza dados de desmame do animal
+    const upd = { data_desmame: data };
+    if(r.peso) upd.peso_desmame = parseFloat(String(r.peso).replace(',','.'));
+    await sb.from('animais').update(upd).eq('id', brinco);
+
+    // Se informou peso, registra também na tabela de pesagens
+    if(r.peso){
+      await sb.from('pesagens').insert({
+        id: 'p_df_'+brinco+'_'+Date.now(),
+        animal_id: brinco,
+        data: data,
+        peso: parseFloat(String(r.peso).replace(',','.'))
+      });
+    }
+    ok++;
+  }
+
+  await registrarAudit('desmame_femea','manejos_sanitarios',eventoId,{animais:ok});
+  fecharModal('modal-desmame-femea');
+  await carregarTudo();
+  renderManejosHist();
+  renderSanidade();
+
+  let msg = `✓ Desmame de ${ok} fêmeas registrado (apartação + pesagem).`;
+  if(semExistir.length) msg += `\n\n⚠️ ${semExistir.length} brincos não encontrados no plantel: ${semExistir.slice(0,10).join(', ')}`;
+  alert(msg);
+}
+
 
 function abrirDesmameRenumeracao(){
   document.getElementById('dr-data').value = new Date().toISOString().slice(0,10);
@@ -5593,6 +5706,41 @@ verificarSessao();
     <div class="modal-btns" style="margin-top:16px">
       <button class="btn btn-s" onclick="aplicarAcaoMassaLote()">&#10003; Aplicar a todos</button>
       <button class="btn" onclick="fecharModal('modal-massa-lote')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL DESMAME FÊMEA -->
+<div id="modal-desmame-femea" class="overlay" style="display:none">
+  <div class="modal" style="max-width:600px">
+    <h3>Desmame de Fêmeas (apartação + pesagem)</h3>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:14px">
+      As fêmeas mantêm o número tatuado na orelha (o brinco físico é colocado agora, no desmame). Registre o brinco e o peso ao desmame.
+    </p>
+    <div class="fg full">
+      <div><div class="fl">Data do desmame *</div>
+        <input class="fi" type="date" id="df-data">
+      </div>
+    </div>
+
+    <div style="margin:14px 0">
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px">Fêmeas desmamadas</div>
+      <table style="width:100%;font-size:13px"><thead><tr>
+        <th style="text-align:left">Brinco</th><th style="text-align:left">Peso (kg)</th><th></th>
+      </tr></thead><tbody id="tbody-df-manual"></tbody></table>
+      <button class="btn" style="margin-top:8px;font-size:12px" onclick="dfAddRow()">+ Adicionar fêmea</button>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:8px">
+      <div class="fl">Ou importe uma planilha (CSV: brinco, peso)</div>
+      <input type="file" id="df-arquivo" accept=".csv" onchange="dfImportarPlanilha(this)" style="font-size:12px;margin-top:6px">
+      <div id="df-preview" style="font-size:12px;color:var(--brand);margin-top:6px"></div>
+    </div>
+
+    <div class="modal-btns" style="margin-top:18px">
+      <button class="btn btn-s" onclick="salvarDesmameFemea()">&#10003; Registrar desmame</button>
+      <button class="btn" onclick="fecharModal('modal-desmame-femea')">Cancelar</button>
     </div>
   </div>
 </div>
