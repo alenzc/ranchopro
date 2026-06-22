@@ -513,6 +513,7 @@ tr:hover td{background:var(--brand-light)}
     </div>
 
     <div id="gen-resumo" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+    <div id="gen-diag" style="font-size:12px;color:var(--text2);background:var(--bg3);border-radius:8px;padding:10px;margin-bottom:14px"></div>
 
     <div class="card">
       <div class="ch">
@@ -1687,13 +1688,39 @@ const PESO_NASCIMENTO_PADRAO = 32; // kg, padrão Nelore
 
 // Calcula P205 (peso ajustado para 205 dias) de um animal
 function calcP205(animal){
-  if(!animal.peso_desmame || !animal.data_desmame || !animal.nasc) return null;
-  const pd = parseFloat(animal.peso_desmame);
-  if(!pd || pd<=0) return null;
+  if(!animal.nasc) return null;
   const nasc = new Date(animal.nasc+'T00:00:00');
-  const desm = new Date(animal.data_desmame+'T00:00:00');
+
+  // Determina peso e data de desmame: usa campos do animal OU a pesagem mais próxima do desmame
+  let pd = parseFloat(animal.peso_desmame)||0;
+  let dataDesm = animal.data_desmame;
+
+  // Se não tem peso de desmame no cadastro, busca a pesagem mais próxima da data de desmame
+  // (ou a pesagem mais recente, se não houver data de desmame)
+  if((!pd || pd<=0) && typeof PESAGENS!=='undefined'){
+    const pesagensAnimal = PESAGENS.filter(p=>p.animal_id===animal.id && p.peso && parseFloat(p.peso)>0);
+    if(pesagensAnimal.length){
+      let alvo;
+      if(dataDesm){
+        // pesagem mais próxima da data de desmame
+        const dd = new Date(dataDesm+'T00:00:00');
+        alvo = pesagensAnimal.reduce((best,p)=>{
+          const dif = Math.abs(new Date(p.data+'T00:00:00')-dd);
+          return (!best || dif < best.dif) ? {p, dif} : best;
+        }, null);
+      } else {
+        // pesagem mais recente
+        alvo = {p: pesagensAnimal.sort((a,b)=>(b.data||'').localeCompare(a.data||''))[0]};
+        dataDesm = alvo.p.data;
+      }
+      if(alvo){ pd = parseFloat(alvo.p.peso); if(!dataDesm) dataDesm = alvo.p.data; }
+    }
+  }
+
+  if(!pd || pd<=0 || !dataDesm) return null;
+  const desm = new Date(dataDesm+'T00:00:00');
   const idadeDias = Math.round((desm - nasc)/86400000);
-  if(idadeDias <= 0 || idadeDias > 400) return null; // sanidade dos dados
+  if(idadeDias <= 0 || idadeDias > 400) return null;
   const gmd = (pd - PESO_NASCIMENTO_PADRAO) / idadeDias;
   const p205 = gmd * 205 + PESO_NASCIMENTO_PADRAO;
   return Math.round(p205);
@@ -1742,6 +1769,23 @@ function classificacaoP205(p205, media, desvio){
 
 function renderGenetica(){
   const visao = document.getElementById('gen-visao').value;
+
+  // DIAGNÓSTICO: conta por que cada animal entra ou não
+  let semNasc=0, semPeso=0, semMae=0, validos=0;
+  ANIMAIS.forEach(a=>{
+    if(!a.nasc){ semNasc++; return; }
+    const p205 = calcP205(a);
+    if(p205===null){ semPeso++; return; }
+    if(!maeDoAnimal(a)) semMae++;
+    validos++;
+  });
+  const diagEl = document.getElementById('gen-diag');
+  if(diagEl){
+    diagEl.innerHTML = `Diagnóstico: ${validos} animais com dados completos para P205`
+      + (semNasc?` · ${semNasc} sem data de nascimento`:'')
+      + (semPeso?` · ${semPeso} sem peso de desmame nem pesagem registrada`:'')
+      + (semMae?` · ${semMae} sem mãe identificada (entram no ranking de touros, mas não no de matrizes)`:'');
+  }
 
   // Coleta todos os bezerros com P205 calculável
   const bezerros = ANIMAIS.map(a=>({
