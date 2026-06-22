@@ -315,17 +315,17 @@ tr:hover td{background:var(--brand-light)}
           <th onclick="sortAnimais('id')">Brinco <span class="sort-icon">⇅</span></th>
           <th class="col-nome" onclick="sortAnimais('nome')">Nome <span class="sort-icon">⇅</span></th>
           <th class="col-raca" onclick="sortAnimais('raca')">Raça <span class="sort-icon">⇅</span></th>
-          <th class="col-sexo">Sexo</th>
+          <th class="col-sexo" onclick="sortAnimais('sexo')" style="cursor:pointer">Sexo <span class="sort-icon">⇅</span></th>
           <th class="col-nasc" onclick="sortAnimais('nasc')">Nascimento <span class="sort-icon">⇅</span></th>
           <th class="col-idade" onclick="sortAnimais('nasc')">Idade <span class="sort-icon">⇅</span></th>
           <th class="col-peso" onclick="sortAnimais('peso')">Peso <span class="sort-icon">⇅</span></th>
           <th class="col-piquete" onclick="sortAnimais('piquete')">Piquete <span class="sort-icon">⇅</span></th>
-          <th class="col-cat">Categoria</th>
+          <th class="col-cat" onclick="sortAnimais('catauto')" style="cursor:pointer">Categoria <span class="sort-icon">⇅</span></th>
           <th class="col-situacao" onclick="sortAnimais('cat')">Situação <span class="sort-icon">⇅</span></th>
           <th class="col-lote" onclick="sortAnimais('lote')">Lote <span class="sort-icon">⇅</span></th>
-          <th class="col-pai">Pai</th>
-          <th class="col-obs">Observação</th>
-          <th class="col-mae">Mãe</th>
+          <th class="col-pai" onclick="sortAnimais('pai')" style="cursor:pointer">Pai <span class="sort-icon">⇅</span></th>
+          <th class="col-obs" onclick="sortAnimais('obs')" style="cursor:pointer">Observação <span class="sort-icon">⇅</span></th>
+          <th class="col-mae" onclick="sortAnimais('mae')" style="cursor:pointer">Mãe <span class="sort-icon">⇅</span></th>
           <th class="col-partos" style="display:none" onclick="sortAnimais('partos')">Partos <span class="sort-icon">⇅</span></th>
           <th></th>
         </tr></thead>
@@ -502,6 +502,13 @@ tr:hover td{background:var(--brand-light)}
           <option value="matrizes">Ranking de Matrizes</option>
           <option value="touros">Ranking de Touros/Sêmen</option>
           <option value="combinacoes">Melhores Combinações</option>
+        </select>
+        <input type="text" id="gen-busca" placeholder="Buscar matriz, touro..." oninput="renderGenetica()" style="min-width:180px">
+        <select id="gen-classif" onchange="renderGenetica()">
+          <option value="">Todas classificações</option>
+          <option value="Top">Apenas Top</option>
+          <option value="Média">Apenas Média</option>
+          <option value="Descarte">Apenas Descarte</option>
         </select>
         <button class="btn" onclick="exportarGenetica()">&#8595; Exportar Excel</button>
       </div>
@@ -1915,10 +1922,13 @@ function renderGenetica(){
   if(visao==='matrizes') renderRankingMatrizes(bezerros, mediaGeral, desvio);
   else if(visao==='touros') renderRankingTouros(bezerros, mediaGeral, desvio);
   else renderCombinacoes(bezerros);
+  setTimeout(()=>tornarTabelaOrdenavel('tbody-genetica'),50);
 }
 
 function renderRankingMatrizes(bezerros, mediaGeral, desvio){
   document.getElementById('gen-titulo').textContent = 'Ranking de Matrizes';
+  const q = (document.getElementById('gen-busca')?.value||'').toLowerCase();
+  const fc = document.getElementById('gen-classif')?.value||'';
   // Agrupa por mãe
   const grupos = {};
   bezerros.forEach(b=>{
@@ -1926,10 +1936,16 @@ function renderRankingMatrizes(bezerros, mediaGeral, desvio){
     if(!grupos[b.mae]) grupos[b.mae] = {mae:b.mae, p205s:[]};
     grupos[b.mae].p205s.push(b.p205);
   });
-  const lista = Object.values(grupos).map(g=>{
+  let lista = Object.values(grupos).map(g=>{
     const media = g.p205s.reduce((s,v)=>s+v,0)/g.p205s.length;
     return {mae:g.mae, n:g.p205s.length, media:Math.round(media)};
   }).sort((a,b)=>b.media-a.media);
+  // Filtros
+  if(q) lista = lista.filter(m=>{
+    const an = ANIMAIS.find(a=>a.id===m.mae);
+    return (m.mae+' '+(an&&an.nome?an.nome:'')).toLowerCase().includes(q);
+  });
+  if(fc) lista = lista.filter(m=>classificacaoP205(m.media, mediaGeral, desvio).label===fc);
 
   document.getElementById('thead-genetica').innerHTML =
     '<tr><th>#</th><th>Matriz</th><th>Nº bezerros</th><th>P205 médio</th><th>vs. média</th><th>Classificação</th></tr>';
@@ -1988,10 +2004,12 @@ function renderCombinacoes(bezerros){
     if(!grupos[k]) grupos[k] = {combo:k, mae:b.mae, touro:b.touro, p205s:[]};
     grupos[k].p205s.push(b.p205);
   });
-  const lista = Object.values(grupos).map(g=>{
+  let lista = Object.values(grupos).map(g=>{
     const media = g.p205s.reduce((s,v)=>s+v,0)/g.p205s.length;
     return {...g, n:g.p205s.length, media:Math.round(media)};
   }).sort((a,b)=>b.media-a.media);
+  const qC = (document.getElementById('gen-busca')?.value||'').toLowerCase();
+  if(qC) lista = lista.filter(c=>(c.mae+' '+c.touro).toLowerCase().includes(qC));
 
   document.getElementById('thead-genetica').innerHTML =
     '<tr><th>#</th><th>Matriz</th><th>Touro/Sêmen</th><th>Nº bezerros</th><th>P205 médio</th></tr>';
@@ -4696,6 +4714,7 @@ function sortAnimais(field) {
     if (field === 'peso') { va = calcPesoAtual(a.id)||0; vb = calcPesoAtual(b.id)||0; }
     else if (field === 'nasc') { va = a.nasc||''; vb = b.nasc||''; }
     else if (field === 'partos') { va = a.partos||0; vb = b.partos||0; }
+    else if (field === 'catauto') { va = categoriaAuto(a).toLowerCase(); vb = categoriaAuto(b).toLowerCase(); }
     else { va = (a[field]||'').toString().toLowerCase(); vb = (b[field]||'').toString().toLowerCase(); }
     return va < vb ? -sortDir : va > vb ? sortDir : 0;
   });
