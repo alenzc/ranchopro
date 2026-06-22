@@ -184,6 +184,8 @@ tr:hover td{background:var(--brand-light)}
   <button class="nb" onclick="nav('historico',this)">&#9632; Histórico</button>
   <button class="nb" onclick="nav('manejos',this)">&#9632; Manejos</button>
   <button class="nb" onclick="nav('sanidade',this)">&#9632; Sanidade</button>
+  <button class="nb" onclick="nav('genetica',this)">&#9632; Genética</button>
+  <button class="nb" onclick="nav('genetica',this)">&#9632; Genética</button>
   <button class="nb" onclick="nav('config',this)">&#9881; Configurações</button>
 </div>
 
@@ -488,6 +490,112 @@ tr:hover td{background:var(--brand-light)}
           <th>Medicamento</th><th>Ações</th>
         </tr></thead>
         <tbody id="tbody-san-eventos"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="sec-genetica" class="sec">
+    <div class="sec-header">
+      <span class="sec-title">Seleção Genética</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="exportarGenetica()">&#8595; Exportar Excel</button>
+      </div>
+    </div>
+
+    <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.6">
+      <strong>Como funciona:</strong> o ranking usa o <strong>P205</strong> (peso ajustado para 205 dias de idade), que permite comparar bezerros de idades diferentes de forma justa.
+      Peso ao nascer considerado: <strong>32 kg</strong> (padrão Nelore). Quanto maior o P205 médio, melhor o desempenho da progênie.
+    </div>
+
+    <!-- Sub-abas -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <button class="btn btn-p" id="gen-tab-matrizes" onclick="genSetTab('matrizes')">Matrizes</button>
+      <button class="btn" id="gen-tab-touros" onclick="genSetTab('touros')">Touros / Sêmen</button>
+      <button class="btn" id="gen-tab-combinacoes" onclick="genSetTab('combinacoes')">Combinações Mãe × Touro</button>
+    </div>
+
+    <div class="sr">
+      <input type="number" id="gen-min-filhos" value="1" min="1" onchange="renderGenetica()" style="width:160px" title="Mínimo de filhos">
+      <span style="font-size:12px;color:var(--text2);align-self:center">filhos mínimos para entrar no ranking</span>
+    </div>
+
+    <!-- MATRIZES -->
+    <div id="gen-view-matrizes" class="card">
+      <div class="ch">
+        <span class="ct">Ranking de Matrizes</span>
+        <span id="gen-matrizes-resumo" style="font-size:12px;color:var(--text2)"></span>
+      </div>
+      <div class="tw">
+        <table><thead><tr>
+          <th>#</th><th>Matriz</th><th>Nome</th><th>Filhos desmamados</th>
+          <th>P205 médio</th><th>P205 melhor</th><th>P205 pior</th><th>Classificação</th>
+        </tr></thead>
+        <tbody id="tbody-gen-matrizes"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TOUROS -->
+    <div id="gen-view-touros" class="card" style="display:none">
+      <div class="ch">
+        <span class="ct">Ranking de Touros / Sêmen</span>
+        <span id="gen-touros-resumo" style="font-size:12px;color:var(--text2)"></span>
+      </div>
+      <div class="tw">
+        <table><thead><tr>
+          <th>#</th><th>Touro / Sêmen</th><th>Filhos desmamados</th>
+          <th>P205 médio</th><th>P205 melhor</th><th>P205 pior</th><th>Classificação</th>
+        </tr></thead>
+        <tbody id="tbody-gen-touros"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- COMBINAÇÕES -->
+    <div id="gen-view-combinacoes" class="card" style="display:none">
+      <div class="ch">
+        <span class="ct">Melhores Combinações Mãe × Touro</span>
+        <span id="gen-comb-resumo" style="font-size:12px;color:var(--text2)"></span>
+      </div>
+      <div class="tw">
+        <table><thead><tr>
+          <th>#</th><th>Matriz</th><th>Touro / Sêmen</th><th>Filhos</th><th>P205 médio</th>
+        </tr></thead>
+        <tbody id="tbody-gen-combinacoes"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="sec-genetica" class="sec">
+    <div class="sec-header">
+      <span class="sec-title">Seleção Genética</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="gen-visao" onchange="renderGenetica()">
+          <option value="matrizes">Ranking de Matrizes</option>
+          <option value="touros">Ranking de Touros/Sêmen</option>
+          <option value="combinacoes">Melhores Combinações</option>
+        </select>
+        <button class="btn" onclick="exportarGenetica()">&#8595; Exportar Excel</button>
+      </div>
+    </div>
+
+    <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.6">
+      <strong>Como funciona:</strong> o ranking usa o <strong>P205</strong> (peso ao desmame ajustado para 205 dias), que permite comparar bezerros de idades diferentes de forma justa.
+      Peso ao nascer assumido: <strong>32 kg</strong> (padrão Nelore). Apenas animais com peso de desmame registrado entram no cálculo.
+    </div>
+
+    <div id="gen-resumo" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
+
+    <div class="card">
+      <div class="ch">
+        <span class="ct" id="gen-titulo">Ranking de Matrizes</span>
+        <span id="gen-info" style="font-size:12px;color:var(--text2)"></span>
+      </div>
+      <div class="tw">
+        <table id="tab-genetica"><thead id="thead-genetica"></thead>
+        <tbody id="tbody-genetica"><tr><td class="loading">Carregando...</td></tr></tbody>
         </table>
       </div>
     </div>
@@ -1036,6 +1144,8 @@ function nav(id,btn){
   if(id==='lotes'){renderLotes();}
   if(id==='lotes'){renderLotes();preencherSelectsLotes();}
   if(id==='sanidade'){renderSanidade();preencherSelectsSanidade();}
+  if(id==='genetica'){renderGenetica();}
+  if(id==='genetica'){renderGenetica();}
   if(id==='mapa')renderMapa();
   if(id==='historico')renderHistorico();
   if(id==='manejos')renderManejosHist();
@@ -1643,6 +1753,197 @@ function renderGenealogia(){
   `;
 }
 
+
+
+
+// ===== SELEÇÃO GENÉTICA =====
+const PESO_NASCIMENTO_PADRAO = 32; // kg, padrão Nelore
+
+// Calcula P205 (peso ajustado para 205 dias) de um animal
+function calcP205(animal){
+  if(!animal.peso_desmame || !animal.data_desmame || !animal.nasc) return null;
+  const pd = parseFloat(animal.peso_desmame);
+  if(!pd || pd<=0) return null;
+  const nasc = new Date(animal.nasc+'T00:00:00');
+  const desm = new Date(animal.data_desmame+'T00:00:00');
+  const idadeDias = Math.round((desm - nasc)/86400000);
+  if(idadeDias <= 0 || idadeDias > 400) return null; // sanidade dos dados
+  const gmd = (pd - PESO_NASCIMENTO_PADRAO) / idadeDias;
+  const p205 = gmd * 205 + PESO_NASCIMENTO_PADRAO;
+  return Math.round(p205);
+}
+
+// Identifica a mãe de um animal (campo mae, ou número base do brinco anterior .B)
+function maeDoAnimal(animal){
+  if(animal.mae) return animal.mae;
+  if(animal.brinco_anterior){
+    const base = animal.brinco_anterior.replace(/\.b$/i,'').trim();
+    if(base) return base;
+  }
+  return null;
+}
+
+// Identifica o touro/sêmen que gerou um animal, via inseminação da mãe
+function touroDoAnimal(animal){
+  // Se o campo pai já tem o touro, usa direto
+  if(animal.pai) return animal.pai;
+  const mae = maeDoAnimal(animal);
+  if(!mae || !animal.nasc) return null;
+  const nasc = new Date(animal.nasc+'T00:00:00');
+  // Procura inseminações dessa mãe que resultaram em prenhez
+  const insMae = INSEMINACOES.filter(i=>i.femea===mae && i.resultado==='Prenhe');
+  if(!insMae.length) return null;
+  // A inseminação cuja previsão de parto (exposição + 285) mais se aproxima do nascimento
+  let melhor=null, menorDif=Infinity;
+  for(const ins of insMae){
+    const dataExp = ins.data_exposicao || ins.data;
+    if(!dataExp) continue;
+    const prev = new Date(dataExp+'T00:00:00');
+    prev.setDate(prev.getDate()+285);
+    const dif = Math.abs((prev - nasc)/86400000);
+    if(dif < menorDif){ menorDif = dif; melhor = ins; }
+  }
+  // Aceita se a previsão estiver dentro de ~30 dias do nascimento real
+  if(melhor && menorDif <= 30) return melhor.touro;
+  return null;
+}
+
+function classificacaoP205(p205, media, desvio){
+  if(p205 >= media + desvio*0.5) return {label:'Top', cor:'bg'};
+  if(p205 <= media - desvio*0.5) return {label:'Descarte', cor:'bp'};
+  return {label:'Média', cor:'ba'};
+}
+
+function renderGenetica(){
+  const visao = document.getElementById('gen-visao').value;
+
+  // Coleta todos os bezerros com P205 calculável
+  const bezerros = ANIMAIS.map(a=>({
+    animal:a, p205:calcP205(a), mae:maeDoAnimal(a), touro:touroDoAnimal(a)
+  })).filter(b=>b.p205!==null);
+
+  // Estatística geral para classificação
+  const todosP205 = bezerros.map(b=>b.p205);
+  const mediaGeral = todosP205.length ? todosP205.reduce((s,v)=>s+v,0)/todosP205.length : 0;
+  const desvio = todosP205.length ? Math.sqrt(todosP205.reduce((s,v)=>s+Math.pow(v-mediaGeral,2),0)/todosP205.length) : 0;
+
+  // Resumo
+  document.getElementById('gen-resumo').innerHTML = `
+    <div class="mc" style="flex:1;min-width:120px"><div class="mc-l">Bezerros avaliados</div><div class="mc-v">${bezerros.length}</div></div>
+    <div class="mc" style="flex:1;min-width:120px"><div class="mc-l">P205 médio geral</div><div class="mc-v">${Math.round(mediaGeral)} kg</div></div>
+    <div class="mc" style="flex:1;min-width:120px"><div class="mc-l">Desvio padrão</div><div class="mc-v">±${Math.round(desvio)} kg</div></div>
+  `;
+
+  if(visao==='matrizes') renderRankingMatrizes(bezerros, mediaGeral, desvio);
+  else if(visao==='touros') renderRankingTouros(bezerros, mediaGeral, desvio);
+  else renderCombinacoes(bezerros);
+}
+
+function renderRankingMatrizes(bezerros, mediaGeral, desvio){
+  document.getElementById('gen-titulo').textContent = 'Ranking de Matrizes';
+  // Agrupa por mãe
+  const grupos = {};
+  bezerros.forEach(b=>{
+    if(!b.mae) return;
+    if(!grupos[b.mae]) grupos[b.mae] = {mae:b.mae, p205s:[]};
+    grupos[b.mae].p205s.push(b.p205);
+  });
+  const lista = Object.values(grupos).map(g=>{
+    const media = g.p205s.reduce((s,v)=>s+v,0)/g.p205s.length;
+    return {mae:g.mae, n:g.p205s.length, media:Math.round(media)};
+  }).sort((a,b)=>b.media-a.media);
+
+  document.getElementById('thead-genetica').innerHTML =
+    '<tr><th>#</th><th>Matriz</th><th>Nº bezerros</th><th>P205 médio</th><th>vs. média</th><th>Classificação</th></tr>';
+  document.getElementById('tbody-genetica').innerHTML = lista.length ? lista.map((m,idx)=>{
+    const cls = classificacaoP205(m.media, mediaGeral, desvio);
+    const diff = Math.round(m.media - mediaGeral);
+    const an = ANIMAIS.find(a=>a.id===m.mae);
+    return `<tr>
+      <td>${idx+1}</td>
+      <td><strong>${m.mae}</strong>${an&&an.nome?' — '+an.nome:''}</td>
+      <td>${m.n}</td>
+      <td><strong>${m.media} kg</strong></td>
+      <td style="color:${diff>=0?'var(--green)':'var(--red)'}">${diff>=0?'+':''}${diff} kg</td>
+      <td><span class="badge ${cls.cor}">${cls.label}</span></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty">Nenhuma matriz com bezerros avaliados.</td></tr>';
+  document.getElementById('gen-info').textContent = `${lista.length} matrizes`;
+}
+
+function renderRankingTouros(bezerros, mediaGeral, desvio){
+  document.getElementById('gen-titulo').textContent = 'Ranking de Touros/Sêmen';
+  const grupos = {};
+  bezerros.forEach(b=>{
+    if(!b.touro) return;
+    if(!grupos[b.touro]) grupos[b.touro] = {touro:b.touro, p205s:[]};
+    grupos[b.touro].p205s.push(b.p205);
+  });
+  const lista = Object.values(grupos).map(g=>{
+    const media = g.p205s.reduce((s,v)=>s+v,0)/g.p205s.length;
+    return {touro:g.touro, n:g.p205s.length, media:Math.round(media)};
+  }).sort((a,b)=>b.media-a.media);
+
+  document.getElementById('thead-genetica').innerHTML =
+    '<tr><th>#</th><th>Touro / Sêmen</th><th>Nº filhos</th><th>P205 médio</th><th>vs. média</th><th>Classificação</th></tr>';
+  document.getElementById('tbody-genetica').innerHTML = lista.length ? lista.map((t,idx)=>{
+    const cls = classificacaoP205(t.media, mediaGeral, desvio);
+    const diff = Math.round(t.media - mediaGeral);
+    return `<tr>
+      <td>${idx+1}</td>
+      <td><strong>${t.touro}</strong></td>
+      <td>${t.n}</td>
+      <td><strong>${t.media} kg</strong></td>
+      <td style="color:${diff>=0?'var(--green)':'var(--red)'}">${diff>=0?'+':''}${diff} kg</td>
+      <td><span class="badge ${cls.cor}">${cls.label}</span></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty">Nenhum touro com filhos avaliados. Verifique se as inseminações estão vinculadas.</td></tr>';
+  document.getElementById('gen-info').textContent = `${lista.length} touros/sêmen`;
+}
+
+function renderCombinacoes(bezerros){
+  document.getElementById('gen-titulo').textContent = 'Melhores Combinações Mãe × Touro';
+  const grupos = {};
+  bezerros.forEach(b=>{
+    if(!b.mae || !b.touro) return;
+    const k = b.mae+' × '+b.touro;
+    if(!grupos[k]) grupos[k] = {combo:k, mae:b.mae, touro:b.touro, p205s:[]};
+    grupos[k].p205s.push(b.p205);
+  });
+  const lista = Object.values(grupos).map(g=>{
+    const media = g.p205s.reduce((s,v)=>s+v,0)/g.p205s.length;
+    return {...g, n:g.p205s.length, media:Math.round(media)};
+  }).sort((a,b)=>b.media-a.media);
+
+  document.getElementById('thead-genetica').innerHTML =
+    '<tr><th>#</th><th>Matriz</th><th>Touro/Sêmen</th><th>Nº bezerros</th><th>P205 médio</th></tr>';
+  document.getElementById('tbody-genetica').innerHTML = lista.length ? lista.map((c,idx)=>`
+    <tr>
+      <td>${idx+1}</td>
+      <td><strong>${c.mae}</strong></td>
+      <td>${c.touro}</td>
+      <td>${c.n}</td>
+      <td><strong>${c.media} kg</strong></td>
+    </tr>`).join('') : '<tr><td colspan="5" class="empty">Nenhuma combinação com vínculo mãe e touro disponível.</td></tr>';
+  document.getElementById('gen-info').textContent = `${lista.length} combinações`;
+}
+
+function exportarGenetica(){
+  const visao = document.getElementById('gen-visao').value;
+  const bezerros = ANIMAIS.map(a=>({animal:a, p205:calcP205(a), mae:maeDoAnimal(a), touro:touroDoAnimal(a)})).filter(b=>b.p205!==null);
+  let dados=[];
+  if(visao==='matrizes'){
+    const g={}; bezerros.forEach(b=>{ if(!b.mae)return; (g[b.mae]=g[b.mae]||[]).push(b.p205); });
+    dados = Object.entries(g).map(([mae,ps])=>({Matriz:mae, 'Nº bezerros':ps.length, 'P205 médio (kg)':Math.round(ps.reduce((s,v)=>s+v,0)/ps.length)})).sort((a,b)=>b['P205 médio (kg)']-a['P205 médio (kg)']);
+  } else if(visao==='touros'){
+    const g={}; bezerros.forEach(b=>{ if(!b.touro)return; (g[b.touro]=g[b.touro]||[]).push(b.p205); });
+    dados = Object.entries(g).map(([touro,ps])=>({'Touro/Sêmen':touro, 'Nº filhos':ps.length, 'P205 médio (kg)':Math.round(ps.reduce((s,v)=>s+v,0)/ps.length)})).sort((a,b)=>b['P205 médio (kg)']-a['P205 médio (kg)']);
+  } else {
+    const g={}; bezerros.forEach(b=>{ if(!b.mae||!b.touro)return; const k=b.mae+' × '+b.touro; (g[k]=g[k]||{mae:b.mae,touro:b.touro,ps:[]}).ps.push(b.p205); });
+    dados = Object.values(g).map(c=>({Matriz:c.mae, 'Touro/Sêmen':c.touro, 'Nº bezerros':c.ps.length, 'P205 médio (kg)':Math.round(c.ps.reduce((s,v)=>s+v,0)/c.ps.length)})).sort((a,b)=>b['P205 médio (kg)']-a['P205 médio (kg)']);
+  }
+  exportarCSV(dados, 'selecao_genetica_'+visao+'.csv');
+}
 
 
 // ===== AÇÃO EM MASSA NO LOTE =====
