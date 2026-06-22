@@ -528,8 +528,6 @@ tr:hover td{background:var(--brand-light)}
       <span class="sec-title">Manejos</span>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-p" onclick="abrirNovoManejoSanitario()">+ Registrar manejo</button>
-        <button class="btn" onclick="abrirDesmameFemea()">&#9792; Desmame Fêmea</button>
-        <button class="btn" onclick="abrirDesmameMacho()">&#9794; Desmame Macho</button>
         <button class="btn" onclick="abrirGerenciarTipos()">&#9881; Tipos de manejo</button>
         <button class="btn" onclick="exportarManejosSanitarios()">&#8595; Exportar Excel</button>
       </div>
@@ -616,6 +614,28 @@ tr:hover td{background:var(--brand-light)}
           </div>
         </div>
         <div style="font-size:11px;color:var(--text3)">Campos: Brinco mãe · Data parto · Brinco cria · Sexo cria</div>
+      </div>
+
+      <div class="card" style="border-left:4px solid #E91E63;cursor:pointer" onclick="abrirManejo('desmame_femea')">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:36px;height:36px;background:#FCE4EC;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">&#9792;</div>
+          <div>
+            <div style="font-weight:700;font-size:13px">Desmame de Fêmeas</div>
+            <div style="font-size:11px;color:var(--text2)">Apartação + pesagem (sem renumeração)</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">Campos: Brinco · Peso · Data · Observação</div>
+      </div>
+
+      <div class="card" style="border-left:4px solid #1565c0;cursor:pointer" onclick="abrirManejo('desmame_macho')">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:36px;height:36px;background:#E3F2FD;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">&#9794;</div>
+          <div>
+            <div style="font-weight:700;font-size:13px">Desmame de Machos</div>
+            <div style="font-size:11px;color:var(--text2)">Apartação + pesagem + renumeração opcional</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">Campos: Brinco · Peso · Novo Brinco · Data · Obs</div>
       </div>
 
     </div>
@@ -2927,125 +2947,6 @@ let drTab = 'manual';
 let drCSVData = [];
 
 
-// ===== DOIS TIPOS DE DESMAME =====
-// Desmame Macho: apartação + pesagem + renumeração opcional (fluxo completo existente)
-function abrirDesmameMacho(){
-  abrirDesmameRenumeracao();
-  // Ajusta título do modal para deixar claro
-  const titulo = document.querySelector('#modal-desmame-renum h3');
-  if(titulo) titulo.textContent = 'Desmame de Machos (com renumeração opcional)';
-}
-
-// Desmame Fêmea: apartação + pesagem (sem renumeração - fêmeas mantêm o número tatuado)
-function abrirDesmameFemea(){
-  document.getElementById('df-data').value = new Date().toISOString().slice(0,10);
-  document.getElementById('df-arquivo').value = '';
-  document.getElementById('df-preview').textContent = '';
-  dfCSVData = [];
-  renderDfManual();
-  document.getElementById('modal-desmame-femea').style.display = 'flex';
-}
-
-let dfCSVData = [];
-let dfManualRows = [{brinco:'', peso:''}];
-
-function renderDfManual(){
-  const tbody = document.getElementById('tbody-df-manual');
-  if(!tbody) return;
-  tbody.innerHTML = dfManualRows.map((r,i)=>`
-    <tr>
-      <td><input type="text" value="${r.brinco}" oninput="dfManualRows[${i}].brinco=this.value" placeholder="Brinco" style="width:100%"></td>
-      <td><input type="number" value="${r.peso}" oninput="dfManualRows[${i}].peso=this.value" placeholder="Peso kg" style="width:100%"></td>
-      <td><button class="btn" style="padding:2px 8px" onclick="dfManualRows.splice(${i},1);renderDfManual()">&times;</button></td>
-    </tr>`).join('');
-}
-
-function dfAddRow(){ dfManualRows.push({brinco:'',peso:''}); renderDfManual(); }
-
-function dfImportarPlanilha(input){
-  const file = input.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = (e)=>{
-    const linhas = e.target.result.split('\n').filter(l=>l.trim());
-    dfCSVData = [];
-    // pula cabeçalho
-    for(let i=1;i<linhas.length;i++){
-      const cols = linhas[i].split(/[,;\t]/);
-      const brinco = (cols[0]||'').trim();
-      let peso = '';
-      // procura primeira coluna numérica que seja peso
-      for(let j=1;j<cols.length;j++){
-        const v = parseFloat((cols[j]||'').replace(',','.'));
-        if(v>0){ peso = v; break; }
-      }
-      if(brinco) dfCSVData.push({brinco, peso});
-    }
-    document.getElementById('df-preview').textContent = `${dfCSVData.length} fêmeas detectadas na planilha.`;
-  };
-  reader.readAsText(file);
-}
-
-async function salvarDesmameFemea(){
-  const data = document.getElementById('df-data').value;
-  if(!data){ alert('Informe a data do desmame.'); return; }
-
-  // Junta manual + planilha
-  let registros = dfManualRows.filter(r=>r.brinco.trim());
-  if(dfCSVData.length) registros = registros.concat(dfCSVData);
-  registros = registros.filter(r=>r.brinco);
-
-  if(!registros.length){ alert('Informe pelo menos uma fêmea.'); return; }
-
-  // Cria evento de manejo "Desmame Fêmea"
-  const eventoId = 'msf_'+Date.now();
-  let ok=0, semExistir=[];
-  for(const r of registros){
-    const brinco = String(r.brinco).trim();
-    const animal = ANIMAIS.find(a=>a.id===brinco);
-    if(!animal){ semExistir.push(brinco); continue; }
-
-    // Registra o manejo
-    await sb.from('manejos_sanitarios').insert({
-      id: eventoId+'_'+brinco,
-      evento_id: eventoId,
-      animal_id: brinco,
-      nome_manejo: 'Desmame Fêmea',
-      data: data,
-      medicamento: '',
-      dose: '',
-      obs: r.peso?`Peso desmame: ${r.peso}kg`:''
-    });
-
-    // Atualiza dados de desmame do animal
-    const upd = { data_desmame: data };
-    if(r.peso) upd.peso_desmame = parseFloat(String(r.peso).replace(',','.'));
-    await sb.from('animais').update(upd).eq('id', brinco);
-
-    // Se informou peso, registra também na tabela de pesagens
-    if(r.peso){
-      await sb.from('pesagens').insert({
-        id: 'p_df_'+brinco+'_'+Date.now(),
-        animal_id: brinco,
-        data: data,
-        peso: parseFloat(String(r.peso).replace(',','.'))
-      });
-    }
-    ok++;
-  }
-
-  await registrarAudit('desmame_femea','manejos_sanitarios',eventoId,{animais:ok});
-  fecharModal('modal-desmame-femea');
-  await carregarTudo();
-  renderManejosHist();
-  renderSanidade();
-
-  let msg = `✓ Desmame de ${ok} fêmeas registrado (apartação + pesagem).`;
-  if(semExistir.length) msg += `\n\n⚠️ ${semExistir.length} brincos não encontrados no plantel: ${semExistir.slice(0,10).join(', ')}`;
-  alert(msg);
-}
-
-
 function abrirDesmameRenumeracao(){
   document.getElementById('dr-data').value = new Date().toISOString().slice(0,10);
   document.getElementById('dr-usar-peso').value = 'sim';
@@ -3848,6 +3749,26 @@ let manejoCSVData = [];
 let manejoHistorico = [];
 
 const MODELOS_MANEJO = {
+  desmame_femea: {
+    titulo: 'Desmame de Fêmeas',
+    instrucoes: `<strong>Como funciona:</strong><br>
+    1. Baixe o modelo e preencha o brinco e o peso ao desmame de cada fêmea<br>
+    2. As fêmeas mantêm o número tatuado (o brinco físico é colocado agora). <strong>Não há renumeração.</strong><br>
+    3. O sistema registra o manejo, atualiza o peso/data de desmame e lança a pesagem<br>
+    4. Os dados alimentam automaticamente a aba Genética (P205)`,
+    colunas: ['Brinco','Peso (kg)','Data','Observação'],
+    exemplo: [['1387','205','2026-05-30',''],['1388','198','2026-05-30','']],
+  },
+  desmame_macho: {
+    titulo: 'Desmame de Machos',
+    instrucoes: `<strong>Como funciona:</strong><br>
+    1. Baixe o modelo e preencha o brinco (número da mãe + .B), peso e, se mantido, o novo número<br>
+    2. Deixe a coluna <strong>Novo Brinco</strong> vazia para machos vendidos (mantêm o número .B)<br>
+    3. Preencha o <strong>Novo Brinco</strong> apenas para machos mantidos no plantel (renumeração)<br>
+    4. O sistema registra o desmame, a pesagem e, quando houver, renumera o animal`,
+    colunas: ['Brinco','Peso (kg)','Novo Brinco','Data','Observação'],
+    exemplo: [['1144.B','231','','2026-05-30','Venda'],['1120.B','225','2050','2026-05-30','Mantido']],
+  },
   dg: {
     titulo: 'Diagnóstico Gestacional (DG)',
     instrucoes: `<strong>Como funciona:</strong><br>
@@ -4027,6 +3948,82 @@ async function executarManejo(){
     if(pesagens.length){
       const {error} = await sb.from('pesagens').insert(pesagens);
       if(error){erros.push({linha: 'Lote', erro: 'Erro ao salvar pesagens: '+error.message});ok=0;}
+    }
+  }
+
+  else if(manejoAtual === 'desmame_femea'){
+    const eventoId = 'msf_'+Date.now();
+    for(const row of manejoCSVData){
+      const brinco = (row['brinco']||'').trim();
+      const peso = parseFloat(row['peso (kg)']||row['peso']||'');
+      const data = buscarDataManejo(row) || new Date().toISOString().split('T')[0];
+      const obs = row['observação']||row['obs']||'';
+      if(!brinco){erros.push({linha:'?', erro:'Linha sem brinco ignorada'});continue;}
+      const animal = ANIMAIS.find(a=>a.id===brinco);
+      if(!animal){erros.push({linha:brinco, erro:'Animal não encontrado no plantel'});continue;}
+      // Registra manejo
+      await sb.from('manejos_sanitarios').insert({id:eventoId+'_'+brinco, evento_id:eventoId, animal_id:brinco, nome_manejo:'Desmame Fêmea', data, medicamento:'', dose:'', obs:(obs?obs+' | ':'')+(peso?`Peso desmame: ${peso}kg`:'')});
+      // Atualiza animal
+      const upd = {data_desmame:data};
+      if(peso) upd.peso_desmame = peso;
+      await sb.from('animais').update(upd).eq('id', brinco);
+      // Lança pesagem
+      if(peso){
+        await sb.from('pesagens').insert({id:`p_df_${brinco}_${Date.now()}`, animal_id:brinco, data, peso, obs:'Desmame'});
+      }
+      ok++;
+    }
+  }
+
+  else if(manejoAtual === 'desmame_macho'){
+    const eventoId = 'msm_'+Date.now();
+    const renumerados = [];
+    for(const row of manejoCSVData){
+      const brinco = (row['brinco']||'').trim();
+      const peso = parseFloat(row['peso (kg)']||row['peso']||'');
+      const novoBrinco = (row['novo brinco']||row['novo']||'').trim();
+      const data = buscarDataManejo(row) || new Date().toISOString().split('T')[0];
+      const obs = row['observação']||row['obs']||'';
+      if(!brinco){erros.push({linha:'?', erro:'Linha sem brinco ignorada'});continue;}
+      const animal = ANIMAIS.find(a=>a.id===brinco);
+      if(!animal){erros.push({linha:brinco, erro:'Animal não encontrado no plantel'});continue;}
+
+      // Verifica se novo brinco já existe (conflito)
+      if(novoBrinco && ANIMAIS.find(a=>a.id===novoBrinco)){
+        erros.push({linha:brinco, erro:`Novo brinco ${novoBrinco} já existe no plantel`});
+        continue;
+      }
+
+      // Registra manejo no brinco atual
+      await sb.from('manejos_sanitarios').insert({id:eventoId+'_'+brinco, evento_id:eventoId, animal_id:novoBrinco||brinco, nome_manejo:'Desmame Macho', data, medicamento:'', dose:'', obs:(obs?obs+' | ':'')+(peso?`Peso desmame: ${peso}kg`:'')+(novoBrinco?` | Renumerado de ${brinco}`:'')});
+
+      if(novoBrinco){
+        // RENUMERAÇÃO: cria novo registro com o novo número, preservando dados
+        const novoAnimal = {...animal, id:novoBrinco, brinco_anterior:brinco, mae:maeDoAnimal(animal)||animal.mae||null, data_desmame:data};
+        if(peso) novoAnimal.peso_desmame = peso;
+        delete novoAnimal.created_at;
+        await sb.from('animais').insert(novoAnimal);
+        // Transfere pesagens e manejos para o novo número
+        await sb.from('pesagens').update({animal_id:novoBrinco}).eq('animal_id', brinco);
+        // Remove o registro antigo
+        await sb.from('animais').delete().eq('id', brinco);
+        if(peso){
+          await sb.from('pesagens').insert({id:`p_dm_${novoBrinco}_${Date.now()}`, animal_id:novoBrinco, data, peso, obs:'Desmame'});
+        }
+        renumerados.push(`${brinco} → ${novoBrinco}`);
+      } else {
+        // SEM renumeração (macho vendido): só atualiza desmame e pesa
+        const upd = {data_desmame:data};
+        if(peso) upd.peso_desmame = peso;
+        await sb.from('animais').update(upd).eq('id', brinco);
+        if(peso){
+          await sb.from('pesagens').insert({id:`p_dm_${brinco}_${Date.now()}`, animal_id:brinco, data, peso, obs:'Desmame'});
+        }
+      }
+      ok++;
+    }
+    if(renumerados.length){
+      erros.push({linha:'ℹ️ Renumerados', erro:renumerados.join(', ')});
     }
   }
 
@@ -5711,39 +5708,7 @@ verificarSessao();
 </div>
 
 
-<!-- MODAL DESMAME FÊMEA -->
-<div id="modal-desmame-femea" class="overlay" style="display:none">
-  <div class="modal" style="max-width:600px">
-    <h3>Desmame de Fêmeas (apartação + pesagem)</h3>
-    <p style="font-size:12px;color:var(--text2);margin-bottom:14px">
-      As fêmeas mantêm o número tatuado na orelha (o brinco físico é colocado agora, no desmame). Registre o brinco e o peso ao desmame.
-    </p>
-    <div class="fg full">
-      <div><div class="fl">Data do desmame *</div>
-        <input class="fi" type="date" id="df-data">
-      </div>
-    </div>
 
-    <div style="margin:14px 0">
-      <div style="font-weight:600;font-size:13px;margin-bottom:8px">Fêmeas desmamadas</div>
-      <table style="width:100%;font-size:13px"><thead><tr>
-        <th style="text-align:left">Brinco</th><th style="text-align:left">Peso (kg)</th><th></th>
-      </tr></thead><tbody id="tbody-df-manual"></tbody></table>
-      <button class="btn" style="margin-top:8px;font-size:12px" onclick="dfAddRow()">+ Adicionar fêmea</button>
-    </div>
-
-    <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:8px">
-      <div class="fl">Ou importe uma planilha (CSV: brinco, peso)</div>
-      <input type="file" id="df-arquivo" accept=".csv" onchange="dfImportarPlanilha(this)" style="font-size:12px;margin-top:6px">
-      <div id="df-preview" style="font-size:12px;color:var(--brand);margin-top:6px"></div>
-    </div>
-
-    <div class="modal-btns" style="margin-top:18px">
-      <button class="btn btn-s" onclick="salvarDesmameFemea()">&#10003; Registrar desmame</button>
-      <button class="btn" onclick="fecharModal('modal-desmame-femea')">Cancelar</button>
-    </div>
-  </div>
-</div>
 
 </body>
 </html>
