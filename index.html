@@ -1687,15 +1687,27 @@ function preencherSelects(){
 async function salvarAnimal(){
   const id=document.getElementById('f-brinco').value.trim();
   if(!id){alert('Brinco é obrigatório.');return;}
+  const maeVal = document.getElementById('f-mae').value.trim()||null;
+  const nascVal = document.getElementById('f-nasc').value||null;
+  let paiVal = document.getElementById('f-pai').value.trim()||null;
+
+  // AUTOMAÇÃO: se o pai não foi informado mas temos mãe e nascimento,
+  // tenta inferir o touro pela inseminação Prenhe da mãe (previsão de parto ≈ nascimento)
+  let paiInferido = false;
+  if(!paiVal && maeVal && nascVal){
+    const touro = touroDoAnimal({pai:null, mae:maeVal, nasc:nascVal});
+    if(touro){ paiVal = touro; paiInferido = true; }
+  }
+
   const {error}=await sb.from('animais').insert({
     id,nome:document.getElementById('f-nome').value.trim()||null,
     raca:document.getElementById('f-raca').value,
     sexo:document.getElementById('f-sexo').value,
-    nasc:document.getElementById('f-nasc').value||null,
+    nasc:nascVal,
     piquete:document.getElementById('f-piquete').value,
     cat:document.getElementById('f-cat').value,
-    pai:document.getElementById('f-pai').value.trim()||null,
-    mae:document.getElementById('f-mae').value.trim()||null,
+    pai:paiVal,
+    mae:maeVal,
     partos:parseInt(document.getElementById('f-partos').value)||0,
   });
   if(error){
@@ -1710,10 +1722,13 @@ async function salvarAnimal(){
   if(peso){
     await sb.from('pesagens').insert({id:'p'+Date.now(),animal_id:id,data:new Date().toISOString().split('T')[0],peso,obs:'Peso inicial'});
   }
-  await registrarAudit('cadastro_animal', 'animais', id, {nome: document.getElementById('f-nome').value, piquete: document.getElementById('f-piquete').value});
+  await registrarAudit('cadastro_animal', 'animais', id, {nome: document.getElementById('f-nome').value, piquete: document.getElementById('f-piquete').value, pai_inferido: paiInferido?paiVal:null});
   fecharModal('modal-animal');
   ['f-brinco','f-nome','f-pai','f-mae','f-peso'].forEach(i=>document.getElementById(i).value='');
   await carregarTudo();
+  if(paiInferido){
+    alert(`✓ Animal ${id} cadastrado.\n\n🧬 Pai preenchido automaticamente: ${paiVal}\n(identificado pela inseminação da mãe ${maeVal})\n\nSe não estiver correto, edite a ficha do animal.`);
+  }
 }
 
 function renderGraficoPeso(){
