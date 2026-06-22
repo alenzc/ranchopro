@@ -1656,7 +1656,7 @@ function abrirAcaoMassaLote(){
   document.getElementById('massa-lote-info').textContent = `Aplicar a todos os ${n} animais do lote "${lote.nome}"`;
   // Preenche selects
   document.getElementById('massa-piquete').innerHTML = '<option value="">— Não alterar —</option>' + PIQUETES.map(p=>`<option>${p.nome}</option>`).join('');
-  document.getElementById('massa-situacao').innerHTML = '<option value="">— Não alterar —</option>' + SITUACOES.map(s=>`<option>${s}</option>`).join('');
+  document.getElementById('massa-situacao').innerHTML = '<option value="">— Não alterar —</option>' + SITUACOES.map(s=>`<option>${s.nome}</option>`).join('');
   document.getElementById('massa-lote-novo').innerHTML = '<option value="">— Não alterar —</option>' + LOTES.filter(l=>l.id!==id).map(l=>`<option value="${l.id}">${l.nome}</option>`).join('') + '<option value="__sem__">Remover do lote (sem lote)</option>';
   document.getElementById('modal-massa-lote').style.display='flex';
 }
