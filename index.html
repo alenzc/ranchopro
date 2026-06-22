@@ -291,7 +291,7 @@ tr:hover td{background:var(--brand-light)}
       <label><input type="checkbox" checked onchange="toggleCol('col-cat',this.checked)"> Categoria</label>
       <label><input type="checkbox" checked onchange="toggleCol('col-situacao',this.checked)"> Situação</label>
       <label><input type="checkbox" checked onchange="toggleCol('col-pai',this.checked)"> Pai</label>
-      <label><input type="checkbox" onchange="toggleCol('col-lote',this.checked)"> Lote</label>
+      
       <label><input type="checkbox" checked onchange="toggleCol('col-obs',this.checked)"> Observação</label>
       <label><input type="checkbox" checked onchange="toggleCol('col-mae',this.checked)"> Mãe</label>
       <label><input type="checkbox" checked onchange="toggleCol('col-lote',this.checked)"> Lote</label>
@@ -1510,67 +1510,6 @@ document.addEventListener('click', (e)=>{
   }
 });
 
-// ===== REORDENAR COLUNAS POR ARRASTO (aba Animais) =====
-let _dragColIdx = null;
-function initColunaDragDrop(){
-  const table = document.getElementById('tab-animais');
-  if(!table) return;
-  const ths = table.querySelectorAll('thead th');
-  ths.forEach((th, idx)=>{
-    // Não permite arrastar a última coluna (ações)
-    if(idx === ths.length-1) return;
-    th.setAttribute('draggable','true');
-    th.addEventListener('dragstart', (e)=>{
-      _dragColIdx = idx;
-      e.dataTransfer.effectAllowed='move';
-      th.style.opacity='0.4';
-    });
-    th.addEventListener('dragend', ()=>{ th.style.opacity=''; });
-    th.addEventListener('dragover', (e)=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; th.style.borderLeft='3px solid var(--brand)'; });
-    th.addEventListener('dragleave', ()=>{ th.style.borderLeft=''; });
-    th.addEventListener('drop', (e)=>{
-      e.preventDefault();
-      th.style.borderLeft='';
-      if(_dragColIdx===null || _dragColIdx===idx) return;
-      moverColuna(_dragColIdx, idx);
-      _dragColIdx=null;
-    });
-  });
-}
-
-function moverColuna(from, to){
-  const table = document.getElementById('tab-animais');
-  // Move o cabeçalho
-  const headRow = table.querySelector('thead tr');
-  const ths = Array.from(headRow.children);
-  const movedTh = ths[from];
-  if(to>from) headRow.insertBefore(movedTh, ths[to].nextSibling);
-  else headRow.insertBefore(movedTh, ths[to]);
-
-  // Move as células de cada linha do corpo
-  table.querySelectorAll('tbody tr').forEach(tr=>{
-    // pula linhas de detalhe expandido (têm colspan)
-    if(tr.classList.contains('detalhe-animal-row')) return;
-    const tds = Array.from(tr.children);
-    if(tds.length <= Math.max(from,to)) return;
-    const movedTd = tds[from];
-    if(to>from) tr.insertBefore(movedTd, tds[to].nextSibling);
-    else tr.insertBefore(movedTd, tds[to]);
-  });
-
-  // Salva a ordem das colunas no localStorage
-  salvarOrdemColunas();
-}
-
-function salvarOrdemColunas(){
-  const table = document.getElementById('tab-animais');
-  const ordem = Array.from(table.querySelectorAll('thead th')).map(th=>{
-    const cls = Array.from(th.classList).find(c=>c.startsWith('col-'));
-    return cls || th.textContent.trim().substring(0,10);
-  });
-  try{ localStorage.setItem('ordem_colunas_animais', JSON.stringify(ordem)); }catch(e){}
-}
-
 // ===== PAINEL EXPANSÍVEL DO ANIMAL =====
 let _animalExpandido = null;
 function toggleDetalheAnimal(id, event){
@@ -1720,7 +1659,6 @@ function renderAnimais(){
     <tr class="detalhe-animal-row" id="detalhe-row-${a.id}" style="display:none"><td colspan="16" style="padding:0;background:var(--bg3)"><div id="detalhe-animal-${a.id}" style="padding:16px"></div></td></tr>`;
   }).join(''):`<tr><td colspan="8" class="empty">Nenhum animal encontrado.</td></tr>`;
   setTimeout(syncAnimaisScroll, 50);
-  setTimeout(initColunaDragDrop, 100);
 }
 function filtrarAnimais(){renderAnimais();}
 
