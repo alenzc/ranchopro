@@ -3258,7 +3258,10 @@ async function moverParaLixeira(origem, registro, descricao){
 async function getEventoItens(origem, chave){
   // Retorna a lista de registros de um evento agrupado
   if(origem==='historico') return HISTORICO.filter(h=>h.id===chave);
-  if(origem==='pesagens') return PESAGENS.filter(p=>(p.data||'sd')===chave);
+  if(origem==='pesagens') return PESAGENS.filter(p=>{
+    const m=(p.obs||'').match(/Lote:\s*([^|]+)/); const rot=m?m[1].trim():'';
+    return ('pes_'+(p.data||'sd')+'_'+rot)===chave;
+  });
   if(origem==='inseminacoes') return INSEMINACOES.filter(i=>(i.data||'sd')===chave);
   if(origem==='manejos_sanitarios') return MANEJOS_SANITARIOS.filter(m=>(m.evento_id||(m.data+'_'+m.tipo_manejo))===chave);
   return [];
@@ -3287,7 +3290,10 @@ function exportarEventoHist(){
 function verEventoHist(enc){
   let info; try{ info=JSON.parse(decodeURIComponent(enc)); }catch(e){ return; }
   const itens = (info.origem==='historico') ? HISTORICO.filter(h=>h.id===info.chave)
-    : info.origem==='pesagens' ? PESAGENS.filter(p=>(p.data||'sd')===info.chave)
+    : info.origem==='pesagens' ? PESAGENS.filter(p=>{
+        const m=(p.obs||'').match(/Lote:\s*([^|]+)/); const rot=m?m[1].trim():'';
+        return ('pes_'+(p.data||'sd')+'_'+rot)===info.chave;
+      })
     : info.origem==='inseminacoes' ? INSEMINACOES.filter(i=>(i.data||'sd')===info.chave)
     : MANEJOS_SANITARIOS.filter(m=>(m.evento_id||(m.data+'_'+m.tipo_manejo))===info.chave);
   if(!itens.length){ alert('Sem itens.'); return; }
@@ -3971,9 +3977,11 @@ function baixarModeloManejo(){
   a.click();
 }
 
+let manejoNomeArquivo = '';
 function previewManejo(){
   const file = document.getElementById('manejo-arquivo').files[0];
   if(!file) return;
+  manejoNomeArquivo = (file.name||'').replace(/\.csv$/i,'').replace(/_/g,' ').trim();
   const reader = new FileReader();
   reader.onload = e => {
     const text = e.target.result.replace(/^﻿/,'');
@@ -4050,7 +4058,9 @@ async function executarManejo(){
       // ID à prova de colisão: brinco + data + timestamp + índice sequencial + aleatório
       _idxPesagem++;
       const idUnico = `p_lot_${brinco}_${data}_${Date.now()}_${_idxPesagem}_${Math.random().toString(36).slice(2,7)}`;
-      pesagens.push({id:idUnico,animal_id:brinco,data,peso,obs:row['observação']||row['obs']||'Manejo em lote'});
+      const obsRow = row['observação']||row['obs']||'';
+      const rotulo = manejoNomeArquivo ? 'Lote: '+manejoNomeArquivo : 'Manejo em lote';
+      pesagens.push({id:idUnico,animal_id:brinco,data,peso,obs:obsRow?obsRow+' | '+rotulo:rotulo});
     }
     // Insere em blocos menores para evitar que uma falha derrube o lote inteiro
     ok = 0;
@@ -4378,11 +4388,16 @@ function renderHistorico(){
   // Monta eventos AGRUPADOS (não animal por animal)
   let eventos = [];
 
-  // --- Pesagens agrupadas por DATA ---
+  // --- Pesagens agrupadas por DATA + LOTE de importação ---
+  const rotuloDe = (p)=>{
+    const m = (p.obs||'').match(/Lote:\s*([^|]+)/);
+    return m ? m[1].trim() : '';
+  };
   const pesGrupos = {};
   PESAGENS.forEach(p=>{
-    const k = 'pes_'+(p.data||'sd');
-    if(!pesGrupos[k]) pesGrupos[k]={tipoAtividade:'Pesagem',data:p.data,origem:'pesagens',chave:p.data,itens:[]};
+    const rot = rotuloDe(p);
+    const k = 'pes_'+(p.data||'sd')+'_'+rot;
+    if(!pesGrupos[k]) pesGrupos[k]={tipoAtividade:'Pesagem',data:p.data,origem:'pesagens',chave:k,nome:rot||null,itens:[]};
     pesGrupos[k].itens.push(p);
   });
   Object.values(pesGrupos).forEach(g=>eventos.push(g));
@@ -4434,7 +4449,7 @@ function renderHistorico(){
       descricao=(h.tipo==='Venda'?'Destino: ':'Causa: ')+(h.destino||'—')+' · brinco '+h.animal_id;
       valorFmt = h.valor ? 'R$ '+Number(h.valor).toLocaleString('pt-BR') : '—';
     } else if(ev.origem==='pesagens'){
-      descricao=`${qtd} pesagem(ns)`;
+      descricao=(ev.nome?`<strong>${ev.nome}</strong> — `:'')+`${qtd} pesagem(ns)`;
     } else if(ev.origem==='inseminacoes'){
       descricao=`${qtd} inseminação(ões)`;
     } else if(ev.origem==='manejos_sanitarios'){
