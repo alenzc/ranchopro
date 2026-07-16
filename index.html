@@ -921,10 +921,27 @@ const sb = {
         if(_limit) url += '&limit='+_limit;
         url = url.replace('??','?');
         try {
-          const r = await fetch(url, {headers: _headers()});
-          const d = await r.json();
-          if(!r.ok) return {data:null, error:{message: JSON.stringify(d)}};
-          return {data: Array.isArray(d)?d:[d], error:null};
+          // Com limite explícito: busca única
+          if(_limit){
+            const r = await fetch(url, {headers: _headers()});
+            const d = await r.json();
+            if(!r.ok) return {data:null, error:{message: JSON.stringify(d)}};
+            return {data: Array.isArray(d)?d:[d], error:null};
+          }
+          // Sem limite: paginação automática (Supabase corta em 1000 linhas por consulta)
+          const PAGINA = 1000;
+          let todos = [];
+          let offset = 0;
+          while(true){
+            const r = await fetch(url, {headers: {..._headers(), 'Range-Unit':'items', 'Range': offset+'-'+(offset+PAGINA-1)}});
+            const d = await r.json();
+            if(!r.ok) return {data:null, error:{message: JSON.stringify(d)}};
+            const lote = Array.isArray(d)?d:[d];
+            todos = todos.concat(lote);
+            if(lote.length < PAGINA) break;
+            offset += PAGINA;
+          }
+          return {data: todos, error:null};
         } catch(e){ return {data:[], error:{message:e.message}}; }
       },
       then(res, rej){ return obj._exec().then(res, rej); },
@@ -4022,6 +4039,7 @@ async function executarManejo(){
 
   else if(manejoAtual === 'pesagem_lote'){
     const pesagens = [];
+    let _idxPesagem = 0;
     for(const row of manejoCSVData){
       const brinco = (row['brinco']||'').trim();
       const peso = parseFloat(row['peso (kg)']||row['peso']||'');
@@ -4029,12 +4047,27 @@ async function executarManejo(){
       if(!brinco||!peso){erros.push({linha: brinco||'?', erro: 'Brinco ou peso inválido — verifique se a coluna "Peso (kg)" está preenchida'});continue;}
       const animal = ANIMAIS.find(a=>a.id===brinco);
       if(!animal){erros.push({linha: brinco, erro: 'Animal não encontrado no plantel'});continue;}
-      pesagens.push({id:`p_lot_${brinco}_${data}_${Date.now()}`,animal_id:brinco,data,peso,obs:row['observação']||row['obs']||'Manejo em lote'});
-      ok++;
+      // ID à prova de colisão: brinco + data + timestamp + índice sequencial + aleatório
+      _idxPesagem++;
+      const idUnico = `p_lot_${brinco}_${data}_${Date.now()}_${_idxPesagem}_${Math.random().toString(36).slice(2,7)}`;
+      pesagens.push({id:idUnico,animal_id:brinco,data,peso,obs:row['observação']||row['obs']||'Manejo em lote'});
     }
-    if(pesagens.length){
-      const {error} = await sb.from('pesagens').insert(pesagens);
-      if(error){erros.push({linha: 'Lote', erro: 'Erro ao salvar pesagens: '+error.message});ok=0;}
+    // Insere em blocos menores para evitar que uma falha derrube o lote inteiro
+    ok = 0;
+    const TAM_BLOCO = 20;
+    for(let bi=0; bi<pesagens.length; bi+=TAM_BLOCO){
+      const bloco = pesagens.slice(bi, bi+TAM_BLOCO);
+      const {error} = await sb.from('pesagens').insert(bloco);
+      if(error){
+        // Se o bloco falhou, tenta um a um para salvar o máximo possível e identificar o problemático
+        for(const p of bloco){
+          const {error: e2} = await sb.from('pesagens').insert([p]);
+          if(e2){ erros.push({linha: p.animal_id, erro: 'Não salvou: '+e2.message}); }
+          else { ok++; }
+        }
+      } else {
+        ok += bloco.length;
+      }
     }
   }
 
