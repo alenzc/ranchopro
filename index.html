@@ -5179,6 +5179,19 @@ function exportarCSV(dados, nomeArquivo) {
   URL.revokeObjectURL(url);
 }
 
+
+// GMD do animal: ganho médio diário entre as duas últimas pesagens (kg/dia)
+function calcGMDAnimal(animalId){
+  const ps = PESAGENS.filter(p=>p.animal_id===animalId && p.peso && p.data)
+    .sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  if(ps.length < 2) return null;
+  const ult = ps[ps.length-1], ant = ps[ps.length-2];
+  const dias = Math.round((new Date(ult.data)-new Date(ant.data))/86400000);
+  if(dias <= 0) return null;
+  const gmd = (parseFloat(ult.peso)-parseFloat(ant.peso))/dias;
+  return Math.round(gmd*100)/100;
+}
+
 function exportarAnimais() {
   const lista = animaisFiltrados.length ? animaisFiltrados : ANIMAIS;
   const dados = lista.map(a => ({
@@ -5190,6 +5203,7 @@ function exportarAnimais() {
     'Idade': calcIdade(a.nasc),
     'Faixa Etária': faixaIdade(a.nasc),
     'Peso Atual (kg)': calcPesoAtual(a.id) || '',
+    'GMD (kg/dia)': calcGMDAnimal(a.id) ?? '',
     'Piquete': a.piquete || '',
     'Categoria': categoriaAuto(a),
     'Situação': a.cat || '',
