@@ -1109,6 +1109,16 @@ function categoriaAuto(animal){
   const sexo = animal.sexo || 'F';
   const partos = animal.partos || 0;
   const situacao = animal.cat || '';
+  const desmamado = !!animal.data_desmame;
+
+  // REGRA DO DESMAME (prioridade máxima): animal jovem ainda não desmamado
+  // é Bezerro/Bezerra, independente da idade em meses.
+  // Teto de sanidade de 12m: animais antigos sem data de desmame registrada
+  // (importados) não são considerados bezerros.
+  if(partos===0 && !desmamado && m!==null && m<12){
+    return sexo==='M' ? 'Bezerro' : 'Bezerra';
+  }
+
   // Use dynamic rules if available
   if(CATEGORIAS && CATEGORIAS.length){
     for(const regra of CATEGORIAS){
@@ -1118,23 +1128,24 @@ function categoriaAuto(animal){
       const situacoes = regra.situacoes || [];
       const situOk = !situacoes.length || situacoes.includes('') || situacoes.includes(situacao);
       if(sexoOk && idadeOk && partosOk && situOk){
-        // TRAVA DE SEGURANÇA: uma fêmea que já pariu nunca é Novilha/Bezerra,
-        // mesmo que uma regra mal configurada diga o contrário
         const nomeRegra = (regra.nome||'').toLowerCase();
+        // TRAVA 1: fêmea que já pariu nunca é Novilha/Bezerra
         if(sexo==='F' && partos>=1 && (nomeRegra.includes('novilha') || nomeRegra.includes('bezerra'))){
-          break; // ignora a regra errada e cai no fallback correto abaixo
+          break; // cai no fallback correto
+        }
+        // TRAVA 2: animal já desmamado nunca é Bezerro/Bezerra (vira Recria/Novilha)
+        if(desmamado && nomeRegra.includes('bezerr')){
+          continue; // tenta a próxima regra (ex: Recria)
         }
         return regra.nome;
       }
     }
   }
-  // Fallback hardcoded
+  // Fallback hardcoded (bezerros já tratados pela regra do desmame no topo)
   if(sexo==='M'){
-    if(m!==null && m<8) return 'Bezerro';
     if(m!==null && m<24) return 'Recria';
     return 'Touro Reprodutor';
   }
-  if(m!==null && m<8) return 'Bezerra';
   if(partos===0) return situacao.includes('renhe')?'Novilha Prenhe':'Novilha Vazia';
   if(partos===1) return situacao.includes('renhe')?'Primípara Prenhe':'Primípara';
   return situacao.includes('renhe')?'Multípara Prenhe':'Multípara';
@@ -4701,7 +4712,9 @@ function novaCategoriaForm(){
   const sw=document.getElementById('fc-situacoes-wrap');
   if(sw){ sw.innerHTML=''; const opts=['',...SITUACOES.map(s=>s.nome)];
     sw.innerHTML=opts.map(v=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="${v}"> ${v||'Qualquer'}</label>`).join(''); }
-  document.getElementById('form-cat-wrap').style.display='block';
+  const fw=document.getElementById('form-cat-wrap');
+  fw.style.display='block';
+  setTimeout(()=>{ try{ fw.scrollIntoView({behavior:'smooth',block:'center'}); document.getElementById('fc-nome').focus(); }catch(e){} }, 60);
 }
 
 function editarCategoria(idx){
@@ -4717,7 +4730,9 @@ function editarCategoria(idx){
   const sw=document.getElementById('fc-situacoes-wrap');
   if(sw){ sw.innerHTML=''; const opts=['',...SITUACOES.map(s=>s.nome)];
     sw.innerHTML=opts.map(v=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" value="${v}" ${(c.situacoes||[]).includes(v)?'checked':''}> ${v||'Qualquer'}</label>`).join(''); }
-  document.getElementById('form-cat-wrap').style.display='block';
+  const fw=document.getElementById('form-cat-wrap');
+  fw.style.display='block';
+  setTimeout(()=>{ try{ fw.scrollIntoView({behavior:'smooth',block:'center'}); document.getElementById('fc-nome').focus(); }catch(e){} }, 60);
 }
 
 async function salvarCategoria(){
