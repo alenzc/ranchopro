@@ -4024,6 +4024,27 @@ function previewManejo(){
   reader.readAsText(file, 'UTF-8');
 }
 
+
+// Ao desmamar um bezerro, remove "com cria ao pé" da situação da mãe
+async function retirarCriaAoPeDaMae(brincoBezerro){
+  // Identifica a mãe: pelo campo mae do bezerro OU pelo número base do .B
+  const bez = ANIMAIS.find(a=>a.id===brincoBezerro);
+  let maeId = null;
+  if(bez && bez.mae) maeId = bez.mae;
+  if(!maeId){
+    const base = String(brincoBezerro).replace(/\.b$/i,'').trim();
+    if(base && base!==brincoBezerro) maeId = base;
+  }
+  if(!maeId) return null;
+  const mae = ANIMAIS.find(a=>a.id===maeId);
+  if(!mae || !mae.cat) return null;
+  // Só age se a situação tiver "com cria ao pé"
+  if(!/com cria ao p[ée]/i.test(mae.cat)) return null;
+  const novaSituacao = mae.cat.replace(/\s*com cria ao p[ée]/i, '').trim();
+  await sb.from('animais').update({cat: novaSituacao}).eq('id', maeId);
+  return {mae:maeId, de:mae.cat, para:novaSituacao};
+}
+
 async function executarManejo(){
   if(!manejoAtual || !manejoCSVData.length) return;
   document.getElementById('btn-executar-manejo').disabled = true;
@@ -4112,6 +4133,8 @@ async function executarManejo(){
       if(peso){
         await sb.from('pesagens').insert({id:`p_df_${brinco}_${Date.now()}`, animal_id:brinco, data, peso, obs:'Desmame'});
       }
+      // Retira "com cria ao pé" da mãe
+      await retirarCriaAoPeDaMae(brinco);
       ok++;
     }
   }
@@ -4161,6 +4184,8 @@ async function executarManejo(){
           await sb.from('pesagens').insert({id:`p_dm_${brinco}_${Date.now()}`, animal_id:brinco, data, peso, obs:'Desmame'});
         }
       }
+      // Retira "com cria ao pé" da mãe (usa o brinco original do bezerro)
+      await retirarCriaAoPeDaMae(brinco);
       ok++;
     }
     if(renumerados.length){
