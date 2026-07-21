@@ -4222,8 +4222,8 @@ async function executarManejo(){
   else if(manejoAtual === 'venda_lote'){
     for(const row of manejoCSVData){
       const brinco = (row['brinco']||'').trim();
-      const data = (row['data']||'').trim();
-      if(!brinco || !data){ erros.push({linha: brinco||'?', erro: 'Brinco ou data não informado'}); continue; }
+      const data = buscarDataManejo(row) || normalizarData((row['data']||'').trim());
+      if(!brinco || !data){ erros.push({linha: brinco||'?', erro: 'Brinco ou data inválida (use DD/MM/AAAA ou AAAA-MM-DD)'}); continue; }
       const animal = ANIMAIS.find(a=>a.id===brinco);
       if(!animal){ erros.push({linha: brinco, erro: `Brinco ${brinco} não encontrado no plantel`}); continue; }
       const peso = parseFloat(row['peso (kg)']||row['peso']||'') || null;
@@ -4249,7 +4249,7 @@ async function executarManejo(){
   else if(manejoAtual === 'parto_lote'){
     for(const row of manejoCSVData){
       const mae = (row['brinco mãe']||row['brinco mae']||'').trim();
-      const dataParto = (row['data parto']||row['data']||'').trim();
+      const dataParto = normalizarData(row['data parto']||row['data']||'') || buscarDataManejo(row);
       if(!mae||!dataParto){erros.push({linha: '?', erro: 'Linha com brinco ou situação vazia'});continue;}
       const animalMae = ANIMAIS.find(a=>a.id===mae);
       if(!animalMae){erros.push({linha: mae, erro: 'Animal mãe não encontrado no plantel'});continue;}
