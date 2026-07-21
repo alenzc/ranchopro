@@ -4263,6 +4263,8 @@ async function executarManejo(){
       };
       const {error: he} = await sb.from('historico').insert(registro);
       if(he){ erros.push({linha: brinco, erro: he.message}); continue; }
+      // Antes de remover, retira "com cria ao pé" da mãe (bezerro vendido = desmamado)
+      await retirarCriaAoPeDaMae(brinco);
       await sb.from('pesagens').delete().eq('animal_id', brinco);
       await sb.from('inseminacoes').delete().eq('femea', brinco);
       const {error: ae} = await sb.from('animais').delete().eq('id', brinco);
