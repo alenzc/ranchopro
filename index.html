@@ -318,6 +318,13 @@ td{padding:10px;border-bottom:1px solid var(--border)}
       <div class="multi-filtro" id="mf-situacao"><button type="button" class="mf-btn" onclick="toggleMultiFiltro('situacao')">Todas as situações <span style="opacity:0.6">▾</span></button><div class="mf-panel" id="mf-panel-situacao"></div></div>
       <div class="multi-filtro" id="mf-piquete"><button type="button" class="mf-btn" onclick="toggleMultiFiltro('piquete')">Todos os piquetes <span style="opacity:0.6">▾</span></button><div class="mf-panel" id="mf-panel-piquete"></div></div>
       <div class="multi-filtro" id="mf-lote"><button type="button" class="mf-btn" onclick="toggleMultiFiltro('lote')">Todos os lotes <span style="opacity:0.6">▾</span></button><div class="mf-panel" id="mf-panel-lote"></div></div>
+      <div style="display:inline-flex;align-items:center;gap:4px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:4px 8px">
+        <span style="font-size:11px;color:var(--text2)">Nasc:</span>
+        <input type="date" id="filtro-nasc-de" onchange="filtrarAnimais()" title="Nascimento de" style="border:none;background:transparent;font-size:12px">
+        <span style="font-size:11px;color:var(--text3)">até</span>
+        <input type="date" id="filtro-nasc-ate" onchange="filtrarAnimais()" title="Nascimento até" style="border:none;background:transparent;font-size:12px">
+        <button class="btn" style="padding:2px 6px;font-size:10px" onclick="document.getElementById('filtro-nasc-de').value='';document.getElementById('filtro-nasc-ate').value='';filtrarAnimais()" title="Limpar">&times;</button>
+      </div>
       <select id="filtro-sexo" onchange="filtrarAnimais()">
         <option value="">M + F</option>
         <option value="F">Fêmeas</option>
@@ -1744,7 +1751,10 @@ function renderAnimais(){
     const piqOk=!fPiq.length||fPiq.includes(a.piquete);
     const sexOk=!sexF||a.sexo===sexF;
     const loteOk=!fLote.length||fLote.includes(a.lote);
-    return match&&catOk&&situOk&&piqOk&&sexOk&&loteOk;
+    const nascDe=document.getElementById('filtro-nasc-de')?.value||'';
+    const nascAte=document.getElementById('filtro-nasc-ate')?.value||'';
+    const nascOk=(!nascDe||(a.nasc&&a.nasc>=nascDe))&&(!nascAte||(a.nasc&&a.nasc<=nascAte));
+    return match&&catOk&&situOk&&piqOk&&sexOk&&loteOk&&nascOk;
   });
   document.getElementById('count-animais').textContent=`Exibindo ${animaisFiltrados.length} de ${ANIMAIS.length} animais`;
   document.getElementById('tbody-animais').innerHTML=animaisFiltrados.length?animaisFiltrados.map(a=>{
@@ -5234,6 +5244,19 @@ function calcGMDAnimal(animalId){
   return Math.round(gmd*100)/100;
 }
 
+
+// Data do último parto de uma vaca: nascimento mais recente entre os filhos dela.
+// Usa o campo ultimo_parto se preenchido; senão, deriva dos filhos (vínculo mãe ou .B).
+function ultimoPartoDe(animal){
+  if(animal.ultimo_parto) return animal.ultimo_parto;
+  const filhos = ANIMAIS.filter(x=>{
+    const m = x.mae || (x.brinco_anterior?x.brinco_anterior.replace(/\.b$/i,''):null) || (x.id&&x.id.match(/^(.+)\.b$/i)?x.id.replace(/\.b$/i,''):null);
+    return m===animal.id;
+  });
+  const datas = filhos.map(f=>f.nasc).filter(Boolean).sort();
+  return datas.length ? datas[datas.length-1] : null;
+}
+
 function exportarAnimais() {
   const lista = animaisFiltrados.length ? animaisFiltrados : ANIMAIS;
   const dados = lista.map(a => ({
@@ -5250,6 +5273,8 @@ function exportarAnimais() {
     'Categoria': categoriaAuto(a),
     'Situação': a.cat || '',
     'Partos': a.partos || 0,
+    'Último Parto': ultimoPartoDe(a) || '',
+    'Dias desde último parto': (()=>{ const up=ultimoPartoDe(a); return up?Math.round((new Date()-new Date(up))/86400000):''; })(),
     'Pai': a.pai || '',
     'Mãe': a.mae || '',
     'Lote': a.lote ? (LOTES.find(l=>l.id===a.lote)?.nome || a.lote) : '',
