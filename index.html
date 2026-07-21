@@ -313,7 +313,7 @@ td{padding:10px;border-bottom:1px solid var(--border)}
 
   <div id="sec-animais" class="sec">
     <div class="sr">
-      <input type="text" placeholder="&#128269; Buscar brinco, nome ou raça..." id="busca" oninput="filtrarAnimais()" style="min-width:200px">
+      <input type="text" placeholder="Buscar brinco, nome, obs, pai/mãe..." id="busca" oninput="filtrarAnimais()" style="min-width:200px">
       <div class="multi-filtro" id="mf-categoria"><button type="button" class="mf-btn" onclick="toggleMultiFiltro('categoria')">Todas as categorias <span style="opacity:0.6">▾</span></button><div class="mf-panel" id="mf-panel-categoria"></div></div>
       <div class="multi-filtro" id="mf-situacao"><button type="button" class="mf-btn" onclick="toggleMultiFiltro('situacao')">Todas as situações <span style="opacity:0.6">▾</span></button><div class="mf-panel" id="mf-panel-situacao"></div></div>
       <div class="multi-filtro" id="mf-piquete"><button type="button" class="mf-btn" onclick="toggleMultiFiltro('piquete')">Todos os piquetes <span style="opacity:0.6">▾</span></button><div class="mf-panel" id="mf-panel-piquete"></div></div>
@@ -1744,7 +1744,7 @@ function renderAnimais(){
   const sexF=(document.getElementById('filtro-sexo').value||'');
   const fCat=_multiFiltros.categoria, fSitu=_multiFiltros.situacao, fPiq=_multiFiltros.piquete, fLote=_multiFiltros.lote;
   animaisFiltrados=ANIMAIS.filter(a=>{
-    const match=!q||(a.id+(a.nome||'')+(a.raca||'')).toLowerCase().includes(q);
+    const match=!q||(a.id+' '+(a.nome||'')+' '+(a.raca||'')+' '+(a.obs||'')+' '+(a.pai||'')+' '+(a.mae||'')).toLowerCase().includes(q);
     const catAuto=categoriaAuto(a);
     const catOk=!fCat.length||fCat.includes(catAuto)||fCat.includes(a.cat);
     const situOk=!fSitu.length||fSitu.includes(a.cat);
