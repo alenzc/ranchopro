@@ -183,6 +183,10 @@ td{padding:10px;border-bottom:1px solid var(--border)}
 /* Cartões de manejo com hover de elevação */
 .card[onclick]:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
 
+
+.mf-acoes{display:flex;gap:6px;padding:6px 8px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;position:sticky;top:0;background:var(--bg);z-index:2}
+.mf-acoes button{flex:1;padding:5px 8px;font-size:11px;font-weight:600;border:1px solid var(--border2);border-radius:6px;background:var(--bg2);color:var(--brand);cursor:pointer}
+.mf-acoes button:hover{background:var(--brand-light);border-color:var(--brand-mid)}
 </style>
 </head>
 <body>
@@ -1583,16 +1587,39 @@ function preencherMultiFiltros(){
   montarPainelMulti('lote', LOTES.map(l=>({val:l.id, label:l.nome})));
 }
 
+// Guarda as opções de cada filtro para o "marcar todos"
+const _opcoesMulti = {};
+
 function montarPainelMulti(tipo, opcoes){
   const panel = document.getElementById('mf-panel-'+tipo);
   if(!panel) return;
-  panel.innerHTML = opcoes.map(o=>{
+  _opcoesMulti[tipo] = opcoes.map(o=> (typeof o==='object') ? o.val : o);
+
+  const cabecalho = opcoes.length ? `
+    <div class="mf-acoes">
+      <button type="button" onclick="marcarTodosMulti('${tipo}', true)">Marcar todos</button>
+      <button type="button" onclick="marcarTodosMulti('${tipo}', false)">Limpar</button>
+    </div>` : '';
+
+  const itens = opcoes.map(o=>{
     const val = (typeof o==='object') ? o.val : o;
     const label = (typeof o==='object') ? o.label : o;
     const checked = _multiFiltros[tipo].includes(val) ? 'checked' : '';
     const v = String(val).replace(/"/g,'&quot;');
     return `<label><input type="checkbox" value="${v}" ${checked} onchange="toggleOpcaoMulti('${tipo}', this.value, this.checked)"><span>${label}</span></label>`;
   }).join('') || '<div style="padding:8px;color:var(--text3);font-size:12px">Nenhuma opção</div>';
+
+  panel.innerHTML = cabecalho + itens;
+}
+
+// Marca ou desmarca todas as opções de um filtro
+function marcarTodosMulti(tipo, marcar){
+  _multiFiltros[tipo] = marcar ? [...(_opcoesMulti[tipo]||[])] : [];
+  // Atualiza os checkboxes visíveis
+  const panel = document.getElementById('mf-panel-'+tipo);
+  if(panel) panel.querySelectorAll('input[type=checkbox]').forEach(cb=>{ cb.checked = marcar; });
+  atualizarBotaoMulti(tipo);
+  renderAnimais();
 }
 
 function toggleMultiFiltro(tipo){
